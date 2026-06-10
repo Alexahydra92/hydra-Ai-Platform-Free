@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/lib/auth-provider";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Coffee AI - Brew Your Ideas with AI",
-  description: "Platform chat AI modern dengan dukungan multi-provider. Gunakan API key sendiri dari OpenAI, Anthropic, DeepSeek, Google, Groq, atau OpenRouter.",
+  title: "Hydra AI - Intelligent Multi-Model Chat Platform",
+  description: "Platform chat AI modern dengan dukungan multi-model. Langsung pakai tanpa API key, atau gunakan key sendiri untuk akses model premium.",
   icons: {
     icon: "/logo.svg",
   },
@@ -38,7 +39,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -8,21 +9,16 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +26,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   Tooltip,
   TooltipContent,
@@ -53,8 +55,17 @@ import {
   Menu,
   Key,
   Zap,
-  ChevronDown,
-  Coffee,
+  LogIn,
+  UserPlus,
+  LogOut,
+  LayoutDashboard,
+  MessageCircle,
+  Shield,
+  BarChart3,
+  Clock,
+  Activity,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -68,6 +79,7 @@ interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: Date
+  dbId?: string
 }
 
 interface Chat {
@@ -76,6 +88,7 @@ interface Chat {
   messages: Message[]
   createdAt: Date
   model: string
+  synced?: boolean
 }
 
 interface Settings {
@@ -86,10 +99,17 @@ interface Settings {
   temperature: number
 }
 
+interface DashboardStats {
+  totalChats: number
+  totalMessages: number
+  recentChats: number
+  modelStats: Record<string, number>
+}
+
 // ─── Constants ───────────────────────────────────────────────────────
 const BRAND = {
-  name: 'Coffee AI',
-  tagline: 'Brew Your Ideas with AI',
+  name: 'Hydra AI',
+  tagline: 'Multi-Model Intelligence',
 }
 
 const DEFAULT_AI = { value: 'glm-5', label: 'GLM-5', provider: 'Z.ai' }
@@ -127,14 +147,10 @@ const DEFAULT_SETTINGS: Settings = {
   temperature: 0.7,
 }
 
-const SUGGESTIONS = [
-  { icon: '☕', title: 'Tulis sebuah cerita pendek', desc: 'tentang petualangan di luar angkasa' },
-  { icon: '💻', title: 'Buatkan kode Python', desc: 'untuk web scraper sederhana' },
-  { icon: '🧠', title: 'Jelaskan konsep', desc: 'machine learning dengan analogi sederhana' },
-  { icon: '📊', title: 'Buat rencana bisnis', desc: 'untuk startup teknologi' },
-]
+// ─── Guest limits ────────────────────────────────────────────────────
+const GUEST_MAX_MESSAGES = 10
 
-// ─── Helper ──────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────
 function generateId() {
   return Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
 }
@@ -143,47 +159,53 @@ function getProvider(model: string) {
   return MODELS.find(m => m.value === model)?.provider || 'OpenAI'
 }
 
-// ─── Coffee Logo Component ───────────────────────────────────────────
-function CoffeeLogo({ className = '', size = 24 }: { className?: string; size?: number }) {
+// ─── Hydra Logo Component ────────────────────────────────────────────
+function HydraLogo({ className = '', size = 24 }: { className?: string; size?: number }) {
   return (
     <svg viewBox="0 0 120 120" fill="none" className={className} width={size} height={size}>
       <defs>
-        <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#8B5E3C' }} />
-          <stop offset="50%" style={{ stopColor: '#C4813D' }} />
-          <stop offset="100%" style={{ stopColor: '#D4A574' }} />
+        <linearGradient id="hydraGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: '#06b6d4' }} />
+          <stop offset="50%" style={{ stopColor: '#0891b2' }} />
+          <stop offset="100%" style={{ stopColor: '#0e7490' }} />
         </linearGradient>
-        <linearGradient id="steamGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-          <stop offset="0%" style={{ stopColor: '#C4813D', stopOpacity: 0.8 }} />
-          <stop offset="100%" style={{ stopColor: '#E8C9A0', stopOpacity: 0.2 }} />
+        <linearGradient id="hydraGlow" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" style={{ stopColor: '#06b6d4', stopOpacity: 0.8 }} />
+          <stop offset="100%" style={{ stopColor: '#67e8f9', stopOpacity: 0.2 }} />
         </linearGradient>
       </defs>
-      <path d="M28 52 L32 90 Q33 98 42 98 L62 98 Q71 98 72 90 L76 52 Z" fill="url(#cupGrad)" />
-      <path d="M76 58 Q92 58 92 72 Q92 86 76 86" stroke="url(#cupGrad)" strokeWidth="5" fill="none" strokeLinecap="round" />
-      <rect x="26" y="48" width="52" height="6" rx="3" fill="#6B4226" />
-      <ellipse cx="52" cy="102" rx="38" ry="5" fill="#6B4226" opacity="0.3" />
-      <path d="M40 44 Q36 34 40 24 Q44 14 40 4" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <path d="M52 44 Q48 32 52 20 Q56 8 52 -2" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <path d="M64 44 Q60 34 64 24 Q68 14 64 4" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <circle cx="40" cy="24" r="3" fill="#D4A574" opacity="0.9" />
-      <circle cx="52" cy="20" r="4" fill="#C4813D" opacity="0.9" />
-      <circle cx="64" cy="24" r="3" fill="#D4A574" opacity="0.9" />
-      <circle cx="46" cy="10" r="2.5" fill="#D4A574" opacity="0.7" />
-      <circle cx="58" cy="10" r="2.5" fill="#D4A574" opacity="0.7" />
-      <circle cx="52" cy="2" r="3" fill="#C4813D" opacity="0.8" />
-      <line x1="40" y1="24" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
-      <line x1="52" y1="20" x2="64" y2="24" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
-      <line x1="46" y1="10" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
-      <line x1="58" y1="10" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
-      <line x1="46" y1="10" x2="52" y2="2" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
-      <line x1="58" y1="10" x2="52" y2="2" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
-      <line x1="40" y1="24" x2="46" y2="10" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
-      <line x1="64" y1="24" x2="58" y2="10" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
+      {/* Main head */}
+      <circle cx="60" cy="35" r="16" fill="url(#hydraGrad)" />
+      <circle cx="60" cy="35" r="12" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.6" />
+      {/* Left head */}
+      <circle cx="35" cy="50" r="12" fill="url(#hydraGrad)" />
+      <circle cx="35" cy="50" r="8" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.6" />
+      {/* Right head */}
+      <circle cx="85" cy="50" r="12" fill="url(#hydraGrad)" />
+      <circle cx="85" cy="50" r="8" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.6" />
+      {/* Body connections */}
+      <path d="M55 48 Q50 55 40 53" stroke="url(#hydraGrad)" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d="M65 48 Q70 55 80 53" stroke="url(#hydraGrad)" strokeWidth="4" fill="none" strokeLinecap="round" />
+      {/* Body */}
+      <path d="M45 65 Q60 80 75 65 Q80 90 60 100 Q40 90 45 65Z" fill="url(#hydraGrad)" opacity="0.9" />
+      {/* Eyes */}
+      <circle cx="55" cy="33" r="2.5" fill="#67e8f9" />
+      <circle cx="65" cy="33" r="2.5" fill="#67e8f9" />
+      <circle cx="32" cy="48" r="2" fill="#67e8f9" />
+      <circle cx="38" cy="48" r="2" fill="#67e8f9" />
+      <circle cx="82" cy="48" r="2" fill="#67e8f9" />
+      <circle cx="88" cy="48" r="2" fill="#67e8f9" />
+      {/* Glow particles */}
+      <circle cx="60" cy="20" r="1.5" fill="#67e8f9" opacity="0.6" />
+      <circle cx="25" cy="38" r="1" fill="#67e8f9" opacity="0.4" />
+      <circle cx="95" cy="38" r="1" fill="#67e8f9" opacity="0.4" />
+      <circle cx="50" cy="14" r="1" fill="#67e8f9" opacity="0.5" />
+      <circle cx="70" cy="14" r="1" fill="#67e8f9" opacity="0.5" />
     </svg>
   )
 }
 
-// ─── Splash Screen Component ─────────────────────────────────────────
+// ─── Splash Screen ───────────────────────────────────────────────────
 function SplashScreen({ onFinish }: { onFinish: () => void }) {
   const [phase, setPhase] = useState<'enter' | 'steady' | 'exit'>('enter')
 
@@ -196,37 +218,33 @@ function SplashScreen({ onFinish }: { onFinish: () => void }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#1a0e08]"
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#0a0f1a]"
       initial={{ opacity: 1 }}
       animate={phase === 'exit' ? { opacity: 0 } : { opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeInOut' }}
     >
-      {/* Background ambient glow */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#C4813D]/5 blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-cyan-500/5 blur-[100px]" />
       </div>
 
-      {/* Logo */}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={phase === 'enter' ? { scale: 0.8, opacity: 0.5 } : { scale: 1, opacity: 1 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="relative"
       >
-        <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-2xl shadow-[#C4813D]/30">
-          <CoffeeLogo size={64} />
+        <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-cyan-500/30">
+          <HydraLogo size={64} />
         </div>
 
-        {/* Pulse ring */}
         <motion.div
-          className="absolute inset-0 rounded-3xl border-2 border-[#C4813D]/40"
+          className="absolute inset-0 rounded-3xl border-2 border-cyan-400/40"
           initial={{ scale: 1, opacity: 0.6 }}
           animate={{ scale: 1.5, opacity: 0 }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
         />
       </motion.div>
 
-      {/* Brand name */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={phase !== 'enter' ? { opacity: 1, y: 0 } : {}}
@@ -234,19 +252,18 @@ function SplashScreen({ onFinish }: { onFinish: () => void }) {
         className="mt-8 text-center"
       >
         <h1 className="text-3xl font-bold text-white tracking-tight">
-          Coffee <span className="bg-gradient-to-r from-[#C4813D] to-[#E8C9A0] bg-clip-text text-transparent">AI</span>
+          Hydra <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">AI</span>
         </h1>
         <motion.p
           initial={{ opacity: 0 }}
           animate={phase === 'steady' ? { opacity: 1 } : {}}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="text-sm text-[#C4813D]/70 mt-2 tracking-wide"
+          className="text-sm text-cyan-400/70 mt-2 tracking-wide"
         >
-          Brew Your Ideas with AI
+          Multi-Model Intelligence
         </motion.p>
       </motion.div>
 
-      {/* Loading bar */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={phase !== 'enter' ? { opacity: 1 } : {}}
@@ -254,18 +271,17 @@ function SplashScreen({ onFinish }: { onFinish: () => void }) {
         className="mt-10 w-48 h-1 bg-white/10 rounded-full overflow-hidden"
       >
         <motion.div
-          className="h-full bg-gradient-to-r from-[#8B5E3C] to-[#E8C9A0] rounded-full"
+          className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full"
           initial={{ width: '0%' }}
           animate={{ width: '100%' }}
           transition={{ duration: 1.8, delay: 0.3, ease: 'easeInOut' }}
         />
       </motion.div>
 
-      {/* Steam particles */}
       {[...Array(6)].map((_, i) => (
         <motion.div
           key={i}
-          className="absolute w-1 h-1 rounded-full bg-[#C4813D]/30"
+          className="absolute w-1 h-1 rounded-full bg-cyan-400/30"
           style={{
             left: `${45 + Math.random() * 10}%`,
             top: `${40 + Math.random() * 10}%`,
@@ -303,12 +319,7 @@ function CodeBlock({ children, className }: { children: string; className?: stri
     <div className="relative group my-3 rounded-lg overflow-hidden border border-border">
       <div className="flex items-center justify-between bg-muted/80 px-4 py-2 text-xs text-muted-foreground">
         <span>{language}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={handleCopy}
-        >
+        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleCopy}>
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Tersalin' : 'Salin'}
         </Button>
@@ -340,9 +351,9 @@ function MessageBubble({ message, onCopy }: { message: Message; onCopy: (text: s
       <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
         isUser
           ? 'bg-primary text-primary-foreground'
-          : 'bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] text-white'
+          : 'bg-gradient-to-br from-cyan-500 to-teal-600 text-white'
       }`}>
-        {isUser ? <User className="h-4 w-4" /> : <CoffeeLogo size={18} />}
+        {isUser ? <User className="h-4 w-4" /> : <HydraLogo size={18} />}
       </div>
       <div className={`flex-1 max-w-[85%] ${isUser ? 'text-right' : ''}`}>
         <div className={`inline-block text-left rounded-2xl px-4 py-3 ${
@@ -375,7 +386,7 @@ function MessageBubble({ message, onCopy }: { message: Message; onCopy: (text: s
                   h2({ children }) { return <h2 className="text-base font-bold mb-2 mt-3">{children}</h2> },
                   h3({ children }) { return <h3 className="text-sm font-bold mb-1 mt-2">{children}</h3> },
                   blockquote({ children }) { return <blockquote className="border-l-2 border-muted-foreground/30 pl-3 italic text-muted-foreground">{children}</blockquote> },
-                  a({ href, children }) { return <a href={href} className="text-[#C4813D] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a> },
+                  a({ href, children }) { return <a href={href} className="text-cyan-500 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a> },
                 }}
               >
                 {message.content}
@@ -403,14 +414,191 @@ function MessageBubble({ message, onCopy }: { message: Message; onCopy: (text: s
   )
 }
 
+// ─── Dashboard Component ─────────────────────────────────────────────
+function DashboardView() {
+  const { user, logout } = useAuth()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [chats, setChats] = useState<Array<{ id: string; title: string; model: string; createdAt: string; _count: { messages: number } }>>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/user')
+        if (res.ok) {
+          const data = await res.json()
+          setStats(data.stats)
+          setChats(data.chats || [])
+        }
+      } catch (err) {
+        console.error('Fetch stats error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStats()
+  }, [])
+
+  const modelLabels: Record<string, string> = {}
+  MODELS.forEach(m => { modelLabels[m.value] = m.label })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center animate-pulse">
+            <HydraLogo size={24} />
+          </div>
+          <p className="text-sm text-muted-foreground">Memuat dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-6">
+      {/* User Info Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-cyan-500/20">
+            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">{user?.name}</h2>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={logout} className="text-destructive hover:text-destructive">
+          <LogOut className="h-4 w-4 mr-1" /> Keluar
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <MessageCircle className="h-5 w-5 text-cyan-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats?.totalChats || 0}</p>
+                <p className="text-xs text-muted-foreground">Total Percakapan</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-teal-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats?.totalMessages || 0}</p>
+                <p className="text-xs text-muted-foreground">Total Pesan</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats?.recentChats || 0}</p>
+                <p className="text-xs text-muted-foreground">Chat 7 Hari Terakhir</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Model Usage */}
+      {stats?.modelStats && Object.keys(stats.modelStats).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-cyan-500" /> Penggunaan Model
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(stats.modelStats).map(([model, count]) => {
+                const total = Object.values(stats.modelStats).reduce((a, b) => a + b, 0)
+                const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                return (
+                  <div key={model} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>{modelLabels[model] || model}</span>
+                      <span className="text-muted-foreground">{count} chat ({pct}%)</span>
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chat History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-cyan-500" /> Riwayat Percakapan
+          </CardTitle>
+          <CardDescription>Percakapan Anda yang tersimpan di server</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {chats.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Belum ada percakapan tersimpan
+            </div>
+          ) : (
+            <ScrollArea className="max-h-96">
+              <div className="space-y-2">
+                {chats.map((chat) => (
+                  <div key={chat.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="h-4 w-4 text-cyan-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{chat.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {modelLabels[chat.model] || chat.model}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {chat._count.messages} pesan
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(chat.createdAt).toLocaleDateString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ─── Main App ────────────────────────────────────────────────────────
-export default function AIPlatform() {
+export default function HydraAI() {
+  const { user, isLoading, isAuthenticated, isGuest, enterGuest, logout, loginWithGithub } = useAuth()
   const { theme, setTheme } = useTheme()
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [chats, setChats] = useState<Chat[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSending, setIsSending] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -418,6 +606,8 @@ export default function AIPlatform() {
   const [showSplash, setShowSplash] = useState(true)
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard'>('chat')
+  const [guestMessageCount, setGuestMessageCount] = useState(0)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -429,13 +619,13 @@ export default function AIPlatform() {
   // Load from localStorage
   useEffect(() => {
     setMounted(true)
-    const hasVisited = localStorage.getItem('coffee-ai-visited')
-    if (hasVisited) {
-      setShowSplash(false)
-    }
-    const savedSettings = localStorage.getItem('coffee-ai-settings')
-    const savedChats = localStorage.getItem('coffee-ai-chats')
-    const savedActiveChat = localStorage.getItem('coffee-ai-active-chat')
+    const hasVisited = localStorage.getItem('hydra-ai-visited')
+    if (hasVisited) setShowSplash(false)
+
+    const savedSettings = localStorage.getItem('hydra-ai-settings')
+    const savedChats = localStorage.getItem('hydra-ai-chats')
+    const savedActiveChat = localStorage.getItem('hydra-ai-active-chat')
+    const savedGuestCount = localStorage.getItem('hydra-guest-msg-count')
 
     if (savedSettings) {
       try { setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) }) } catch { /* ignore */ }
@@ -450,13 +640,47 @@ export default function AIPlatform() {
         })))
       } catch { /* ignore */ }
     }
-    if (savedActiveChat) { setActiveChatId(savedActiveChat) }
+    if (savedActiveChat) setActiveChatId(savedActiveChat)
+    if (savedGuestCount) setGuestMessageCount(parseInt(savedGuestCount))
   }, [])
 
+  // Load DB chats for authenticated users
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetch('/api/chats')
+        .then(res => res.ok ? res.json() : [])
+        .then(dbChats => {
+          if (Array.isArray(dbChats) && dbChats.length > 0) {
+            const mapped: Chat[] = dbChats.map((c: { id: string; title: string; model: string; createdAt: string; messages: Array<{ id: string; role: string; content: string; createdAt: string }> }) => ({
+              id: c.id,
+              title: c.title,
+              model: c.model,
+              createdAt: new Date(c.createdAt),
+              synced: true,
+              messages: (c.messages || []).map((m: { id: string; role: string; content: string; createdAt: string }) => ({
+                id: m.id,
+                role: m.role as 'user' | 'assistant' | 'system',
+                content: m.content,
+                timestamp: new Date(m.createdAt),
+                dbId: m.id,
+              })),
+            }))
+            setChats(prev => {
+              // Merge: keep local-only chats, add DB chats
+              const localOnly = prev.filter(c => !c.synced)
+              return [...mapped, ...localOnly]
+            })
+          }
+        })
+        .catch(() => {})
+    }
+  }, [isAuthenticated])
+
   // Save to localStorage
-  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-settings', JSON.stringify(settings)) }, [settings, mounted])
-  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-chats', JSON.stringify(chats)) }, [chats, mounted])
-  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-active-chat', activeChatId || '') }, [activeChatId, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-settings', JSON.stringify(settings)) }, [settings, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-chats', JSON.stringify(chats)) }, [chats, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-active-chat', activeChatId || '') }, [activeChatId, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('hydra-guest-msg-count', guestMessageCount.toString()) }, [guestMessageCount, mounted])
 
   // Auto-scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent])
@@ -469,9 +693,16 @@ export default function AIPlatform() {
     }
   }, [input])
 
+  // Auto-enter as guest if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && !isGuest && !isLoading) {
+      enterGuest()
+    }
+  }, [isAuthenticated, isGuest, isLoading, enterGuest])
+
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false)
-    localStorage.setItem('coffee-ai-visited', 'true')
+    localStorage.setItem('hydra-ai-visited', 'true')
   }, [])
 
   const createNewChat = useCallback(() => {
@@ -488,14 +719,18 @@ export default function AIPlatform() {
     setStreamingContent('')
   }, [settings.model])
 
-  const deleteChat = useCallback((chatId: string) => {
+  const deleteChat = useCallback(async (chatId: string) => {
+    // Delete from DB if authenticated
+    if (isAuthenticated) {
+      try { await fetch(`/api/chats/${chatId}`, { method: 'DELETE' }) } catch { /* ignore */ }
+    }
     setChats(prev => prev.filter(c => c.id !== chatId))
     if (activeChatId === chatId) setActiveChatId(null)
-  }, [activeChatId])
+  }, [activeChatId, isAuthenticated])
 
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
-    setIsLoading(false)
+    setIsSending(false)
     if (streamingContent && activeChatId) {
       const assistantMessage: Message = { id: generateId(), role: 'assistant', content: streamingContent, timestamp: new Date() }
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, assistantMessage] } : c))
@@ -504,23 +739,34 @@ export default function AIPlatform() {
   }, [streamingContent, activeChatId])
 
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading) return
-    // No API key needed - default Z.ai GLM works out of the box
+    if (!input.trim() || isSending) return
+
+    // Check guest limit
+    if (isGuest && !isAuthenticated && guestMessageCount >= GUEST_MAX_MESSAGES) {
+      return
+    }
 
     let chatId = activeChatId
-    if (!chatId) {
+    let chatsWithNew: Chat[] = chats
+    // Create a new chat if no active chat or active chat doesn't exist in chats array
+    if (!chatId || !chats.find(c => c.id === chatId)) {
       const newChat: Chat = { id: generateId(), title: 'Percakapan Baru', messages: [], createdAt: new Date(), model: settings.model }
-      setChats(prev => [newChat, ...prev])
+      chatsWithNew = [newChat, ...chats]
+      setChats(chatsWithNew)
       chatId = newChat.id
       setActiveChatId(chatId)
     }
 
     const userMessage: Message = { id: generateId(), role: 'user', content: input.trim(), timestamp: new Date() }
-    const updatedChats = chats.map(c => c.id === chatId ? { ...c, messages: [...c.messages, userMessage] } : c)
+    const updatedChats = chatsWithNew.map(c => c.id === chatId ? { ...c, messages: [...c.messages, userMessage] } : c)
     setChats(updatedChats)
     setInput('')
-    setIsLoading(true)
+    setIsSending(true)
     setStreamingContent('')
+
+    if (isGuest && !isAuthenticated) {
+      setGuestMessageCount(prev => prev + 1)
+    }
 
     const apiMessages = [
       ...(settings.systemPrompt ? [{ role: 'system' as const, content: settings.systemPrompt }] : []),
@@ -582,17 +828,48 @@ export default function AIPlatform() {
         }
         return c
       }))
+
+      // Save to DB if authenticated
+      if (isAuthenticated) {
+        try {
+          // Create chat in DB if not synced
+          const chat = chats.find(c => c.id === chatId)
+          if (!chat?.synced) {
+            await fetch('/api/chats', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: chat?.title || 'Percakapan Baru', model: settings.model }),
+            })
+          }
+          // Add messages to DB
+          await fetch(`/api/chats/${chatId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [
+                { role: 'user', content: userMessage.content },
+                { role: 'assistant', content: fullContent },
+              ],
+              title: chat?.messages?.length === 0
+                ? userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '')
+                : undefined,
+            }),
+          })
+        } catch (err) {
+          console.error('Save to DB error:', err)
+        }
+      }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') return
       const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
-      const errorMsg: Message = { id: generateId(), role: 'assistant', content: `⚠️ Error: ${errorMessage}`, timestamp: new Date() }
+      const errorMsg: Message = { id: generateId(), role: 'assistant', content: `Error: ${errorMessage}`, timestamp: new Date() }
       setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: [...c.messages, errorMsg] } : c))
     } finally {
-      setIsLoading(false)
+      setIsSending(false)
       setStreamingContent('')
       abortControllerRef.current = null
     }
-  }, [input, isLoading, settings, activeChatId, chats])
+  }, [input, isSending, settings, activeChatId, chats, isAuthenticated, isGuest, guestMessageCount])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -605,20 +882,42 @@ export default function AIPlatform() {
   }
 
   const handleCopy = (text: string) => { navigator.clipboard.writeText(text) }
-  const clearAllChats = () => { setChats([]); setActiveChatId(null) }
+  const clearAllChats = async () => {
+    if (isAuthenticated) {
+      try { await fetch('/api/chats', { method: 'DELETE' }) } catch { /* ignore */ }
+    }
+    setChats([])
+    setActiveChatId(null)
+  }
   const currentProvider = getProvider(settings.model)
+
+  const isGuestLimitReached = isGuest && !isAuthenticated && guestMessageCount >= GUEST_MAX_MESSAGES
+
+  // ─── Auth gate ──────────────────────────────────────────────
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0f1a]">
+        <div className="flex flex-col items-center gap-4">
+          <HydraLogo size={48} />
+          <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full animate-pulse" style={{ width: '60%' }} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // ─── Settings Dialog Content ─────────────────────────────────
   const settingsContent = (
     <div className="space-y-6">
       {/* Default AI Notice */}
-      <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-[#8B5E3C]/10 to-[#C4813D]/10 border border-[#C4813D]/20">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center flex-shrink-0">
-          <CoffeeLogo size={18} />
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-teal-500/10 border border-cyan-500/20">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+          <HydraLogo size={18} />
         </div>
         <div>
-          <p className="text-sm font-medium">Z.ai GLM-5 - Siap Digunakan</p>
-          <p className="text-xs text-muted-foreground">Platform sudah include AI default. Tidak perlu API key!</p>
+          <p className="text-sm font-medium">GLM-5 - Siap Digunakan</p>
+          <p className="text-xs text-muted-foreground">Powered By @Alexa Hydra</p>
         </div>
       </div>
 
@@ -629,7 +928,7 @@ export default function AIPlatform() {
         <div className="relative">
           <Input
             type={apiKeyVisible ? 'text' : 'password'}
-            placeholder="Kosongkan untuk pakai Z.ai default..."
+            placeholder="Kosongkan untuk pakai GLM-5 default..."
             value={settings.apiKey}
             onChange={(e) => setSettings(prev => ({ ...prev, apiKey: e.target.value }))}
             className="pr-20"
@@ -641,7 +940,7 @@ export default function AIPlatform() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Opsional: Masukkan API key sendiri untuk menggunakan provider lain (OpenAI, DeepSeek, dll). API key disimpan lokal di browser.
+          Opsional: Masukkan API key sendiri untuk menggunakan provider lain (OpenAI, DeepSeek, dll).
         </p>
       </div>
 
@@ -667,7 +966,7 @@ export default function AIPlatform() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Base URL</Label>
         <Input placeholder="https://api.openai.com/v1" value={settings.baseUrl} onChange={(e) => setSettings(prev => ({ ...prev, baseUrl: e.target.value }))} />
-        <p className="text-xs text-muted-foreground">Otomatis disesuaikan berdasarkan provider. Anda juga bisa menggunakan URL custom.</p>
+        <p className="text-xs text-muted-foreground">Otomatis disesuaikan berdasarkan provider.</p>
       </div>
 
       <div className="space-y-2">
@@ -682,13 +981,12 @@ export default function AIPlatform() {
           <input type="range" min="0" max="2" step="0.1" value={settings.temperature} onChange={(e) => setSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))} className="flex-1" />
           <span className="text-xs text-muted-foreground">2</span>
         </div>
-        <p className="text-xs text-muted-foreground">Nilai rendah = lebih fokus, Nilai tinggi = lebih kreatif</p>
       </div>
 
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-        <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-[#C4813D]'}`} />
+        <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
         <span className="text-xs text-muted-foreground">
-          {settings.apiKey ? `Custom: ${currentProvider} (${settings.model})` : `Z.ai GLM-5 (Default - Gratis)`}
+          {settings.apiKey ? `Custom: ${currentProvider} (${settings.model})` : `GLM-5 (Default - Gratis)`}
         </span>
       </div>
     </div>
@@ -732,15 +1030,9 @@ export default function AIPlatform() {
           </Button>
         )}
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 lg:hidden">
-              <Settings className="h-4 w-4" /> Pengaturan
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Pengaturan</DialogTitle>
-              <DialogDescription>Konfigurasi API dan preferensi Anda</DialogDescription>
             </DialogHeader>
             {settingsContent}
           </DialogContent>
@@ -749,28 +1041,13 @@ export default function AIPlatform() {
     </div>
   )
 
-  // ─── Loading state before mount ──────────────────────────────
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1a0e08]">
-        <div className="flex flex-col items-center gap-4">
-          <CoffeeLogo size={48} />
-          <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#8B5E3C] to-[#E8C9A0] rounded-full animate-pulse" style={{ width: '60%' }} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  // ─── Main Render ─────────────────────────────────────────────
   return (
     <TooltipProvider>
-      {/* Splash Screen */}
       <AnimatePresence>
         {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
       </AnimatePresence>
 
-      {/* Main App */}
       <motion.div
         className="min-h-screen flex bg-background"
         initial={{ opacity: 0 }}
@@ -780,14 +1057,15 @@ export default function AIPlatform() {
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-72 border-r border-border flex-col bg-muted/30">
           <div className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-md shadow-[#C4813D]/20">
-              <CoffeeLogo size={22} />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
+              <HydraLogo size={22} />
             </div>
             <div>
               <h1 className="text-sm font-bold">{BRAND.name}</h1>
               <p className="text-[10px] text-muted-foreground">{BRAND.tagline}</p>
             </div>
           </div>
+
           {sidebarContent}
         </aside>
 
@@ -797,20 +1075,19 @@ export default function AIPlatform() {
           <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="lg:hidden">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
+                <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+                  <Menu className="h-5 w-5" />
+                </Button>
                 <SheetContent side="left" className="w-72 p-0">
                   <SheetHeader className="p-4 pb-0">
                     <SheetTitle className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center">
-                        <CoffeeLogo size={16} />
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center">
+                        <HydraLogo size={16} />
                       </div>
                       {BRAND.name}
                     </SheetTitle>
                   </SheetHeader>
+
                   {sidebarContent}
                 </SheetContent>
               </Sheet>
@@ -829,6 +1106,13 @@ export default function AIPlatform() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Guest badge */}
+              {isGuest && !isAuthenticated && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/30 text-amber-500">
+                  Tamu ({GUEST_MAX_MESSAGES - guestMessageCount} sisa)
+                </Badge>
+              )}
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
@@ -838,22 +1122,9 @@ export default function AIPlatform() {
                 <TooltipContent>Ganti tema</TooltipContent>
               </Tooltip>
 
-              <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hidden lg:flex">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Pengaturan</DialogTitle>
-                    <DialogDescription>Konfigurasi API dan preferensi Anda</DialogDescription>
-                  </DialogHeader>
-                  {settingsContent}
-                </DialogContent>
-              </Dialog>
-
-
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hidden lg:flex" onClick={() => setSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+              </Button>
 
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -863,158 +1134,193 @@ export default function AIPlatform() {
                 </TooltipTrigger>
                 <TooltipContent>Percakapan baru</TooltipContent>
               </Tooltip>
+
+              {/* User menu */}
+              {isAuthenticated ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
+                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">{user?.name}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    </div>
+                    <Separator />
+                    <DropdownMenuItem onClick={() => setActiveTab('dashboard')}>
+                      <LayoutDashboard className="h-4 w-4 mr-2" /> Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                      <Settings className="h-4 w-4 mr-2" /> Pengaturan
+                    </DropdownMenuItem>
+                    <Separator />
+                    <DropdownMenuItem onClick={logout} className="text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" /> Keluar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Shield className="h-4 w-4 text-amber-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">Mode Tamu</p>
+                      <p className="text-xs text-muted-foreground">Login untuk simpan riwayat chat</p>
+                    </div>
+                    <Separator />
+                    <DropdownMenuItem onClick={loginWithGithub}>
+                      <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                      Login dengan GitHub
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </header>
 
-          {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto">
-            {messages.length === 0 && !streamingContent ? (
-              <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] px-4">
-                <div className="max-w-2xl w-full text-center space-y-8">
-                  <div className="space-y-4">
-                    <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-xl shadow-[#C4813D]/25">
-                      <CoffeeLogo size={48} />
-                    </div>
-                    <h2 className="text-2xl font-bold tracking-tight">
-                      Selamat Datang di <span className="bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] bg-clip-text text-transparent">Coffee AI</span>
-                    </h2>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Platform chat AI yang langsung bisa dipakai. Didukung Z.ai GLM-5 sebagai AI default. Masukkan API key custom untuk akses model lain.
-                    </p>
-                  </div>
-
-                  {/* Ready to use notice */}
-                  <div className="bg-gradient-to-r from-[#8B5E3C]/10 to-[#C4813D]/10 border border-[#C4813D]/20 rounded-xl p-4 max-w-md mx-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="h-4 w-4 text-[#C4813D]" />
-                      <span className="text-sm font-medium">Siap Digunakan - Tanpa API Key!</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Platform sudah include Z.ai GLM-5 sebagai AI default. Langsung chat, tanpa perlu setting apapun!
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-pulse" />
-                      <span className="text-xs text-[#C4813D] font-medium">Z.ai GLM-5 Active</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
-                    {SUGGESTIONS.map((s, i) => (
-                      <button
-                        key={i}
-                        className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 hover:border-[#C4813D]/30 transition-colors text-left"
-                        onClick={() => { setInput(`${s.title} ${s.desc}`); textareaRef.current?.focus() }}
-                      >
-                        <span className="text-lg">{s.icon}</span>
-                        <div>
-                          <p className="text-sm font-medium">{s.title}</p>
-                          <p className="text-xs text-muted-foreground">{s.desc}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">Provider Didukung</p>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {['OpenAI', 'Anthropic', 'DeepSeek', 'Google', 'Groq', 'OpenRouter'].map(p => (
-                        <Badge key={p} variant="outline" className="text-xs">{p}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-3xl mx-auto px-4 py-2">
-                {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} onCopy={handleCopy} />
-                ))}
-                {streamingContent && (
-                  <MessageBubble message={{ id: 'streaming', role: 'assistant', content: streamingContent, timestamp: new Date() }} onCopy={handleCopy} />
-                )}
-                {isLoading && !streamingContent && (
-                  <div className="flex gap-3 py-4">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] text-white flex items-center justify-center">
-                      <CoffeeLogo size={18} />
-                    </div>
-                    <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce [animation-delay:-0.3s]" />
-                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce [animation-delay:-0.15s]" />
-                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </div>
-
-          {/* Input Area */}
-          <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder='Ketik pesan Anda... ☕'
-                    disabled={isLoading}
-                    className="resize-none min-h-[44px] max-h-[200px] pr-12 rounded-xl"
-                    rows={1}
-                  />
-                </div>
-                {isLoading ? (
-                  <Button variant="destructive" size="sm" className="h-11 w-11 rounded-xl p-0" onClick={stopGeneration}>
-                    <Square className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="h-11 w-11 rounded-xl p-0 bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white"
-                    onClick={sendMessage}
-                    disabled={!input.trim()}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-muted-foreground">
-                        <Sparkles className="h-3 w-3" />
-                        {MODELS.find(m => m.value === settings.model)?.label || settings.model}
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto">
-                      {Object.entries(
-                        MODELS.reduce((acc, m) => { if (!acc[m.provider]) acc[m.provider] = []; acc[m.provider].push(m); return acc }, {} as Record<string, typeof MODELS>)
-                      ).map(([provider, models]) => (
-                        <div key={provider}>
-                          <DropdownMenuSeparator />
-                          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{provider}</p>
-                          {models.map((model) => (
-                            <DropdownMenuItem key={model.value} onClick={() => handleModelChange(model.value)} className={settings.model === model.value ? 'bg-primary/10' : ''}>
-                              {model.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </div>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <p className="text-[10px] text-muted-foreground">Shift + Enter untuk baris baru</p>
-              </div>
+          {/* Content Area */}
+          {activeTab === 'dashboard' && isAuthenticated ? (
+            <div className="flex-1 overflow-y-auto">
+              <DashboardView />
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Chat Area */}
+              <div className="flex-1 overflow-y-auto">
+                {messages.length === 0 && !streamingContent ? (
+                  <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] px-4">
+                    <div className="max-w-md w-full text-center space-y-6">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-xl shadow-cyan-500/25">
+                        <HydraLogo size={36} />
+                      </div>
+                      <h2 className="text-xl font-bold tracking-tight">
+                        <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">Hydra AI</span>
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Mulai percakapan dengan mengetik pesan di bawah
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-w-3xl mx-auto px-4 py-4">
+                    {messages.map((msg) => (
+                      <MessageBubble key={msg.id} message={msg} onCopy={handleCopy} />
+                    ))}
+                    {streamingContent && (
+                      <div className="flex gap-3 py-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center">
+                          <HydraLogo size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                              <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {isSending && !streamingContent && (
+                      <div className="flex gap-3 py-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center">
+                          <HydraLogo size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <div className="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <div className="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground">Hydra AI sedang berpikir...</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+
+              {/* Input Area */}
+              <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4">
+                <div className="max-w-3xl mx-auto">
+                  {/* Guest limit warning */}
+                  {isGuestLimitReached && (
+                    <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm flex items-center gap-2">
+                      <Shield className="h-4 w-4 flex-shrink-0" />
+                      <span>Batas pesan tamu tercapai. <button onClick={logout} className="font-medium underline">Login</button> untuk akses tanpa batas.</span>
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 relative">
+                      <Textarea
+                        ref={textareaRef}
+                        placeholder={isGuestLimitReached ? 'Batas tamu tercapai. Login untuk lanjut.' : 'Ketik pesan Anda...'}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={isSending || isGuestLimitReached}
+                        className="min-h-[44px] max-h-[200px] resize-none pr-2"
+                        rows={1}
+                      />
+                    </div>
+                    {isSending ? (
+                      <Button variant="destructive" size="sm" className="h-11 w-11 p-0" onClick={stopGeneration}>
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="h-11 w-11 p-0 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white"
+                        onClick={sendMessage}
+                        disabled={!input.trim() || isGuestLimitReached}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center mt-2">
+                    Powered By @Alexa Hydra
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Mobile Dashboard FAB */}
+          {isAuthenticated && activeTab === 'chat' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="fixed bottom-24 right-4 lg:hidden rounded-full shadow-lg z-20 bg-background"
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <LayoutDashboard className="h-4 w-4 mr-1" /> Dashboard
+            </Button>
+          )}
         </main>
       </motion.div>
+
+      {/* Settings Dialog (desktop) */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pengaturan</DialogTitle>
+          </DialogHeader>
+          {settingsContent}
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }
