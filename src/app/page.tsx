@@ -66,6 +66,14 @@ import {
   Activity,
   Eye,
   EyeOff,
+  Paperclip,
+  Image as ImageIcon,
+  Search,
+  Code,
+  Brain,
+  X,
+  FileText,
+  Loader2,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -608,10 +616,18 @@ export default function HydraAI() {
   const [modelSearch, setModelSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard'>('chat')
   const [guestMessageCount, setGuestMessageCount] = useState(0)
+  const [chatMode, setChatMode] = useState<'chat' | 'coding' | 'analysis' | 'agent'>('chat')
+  const [uploadedFileContent, setUploadedFileContent] = useState<string | null>(null)
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const [uploadedImageName, setUploadedImageName] = useState<string | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const activeChat = chats.find(c => c.id === activeChatId)
   const messages = activeChat?.messages || []
@@ -626,6 +642,7 @@ export default function HydraAI() {
     const savedChats = localStorage.getItem('hydra-ai-chats')
     const savedActiveChat = localStorage.getItem('hydra-ai-active-chat')
     const savedGuestCount = localStorage.getItem('hydra-guest-msg-count')
+    const savedChatMode = localStorage.getItem('hydra-ai-chat-mode')
 
     if (savedSettings) {
       try { setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) }) } catch { /* ignore */ }
@@ -642,6 +659,9 @@ export default function HydraAI() {
     }
     if (savedActiveChat) setActiveChatId(savedActiveChat)
     if (savedGuestCount) setGuestMessageCount(parseInt(savedGuestCount))
+    if (savedChatMode && ['chat', 'coding', 'analysis', 'agent'].includes(savedChatMode)) {
+      setChatMode(savedChatMode as 'chat' | 'coding' | 'analysis' | 'agent')
+    }
   }, [])
 
   // Load DB chats for authenticated users
@@ -681,6 +701,7 @@ export default function HydraAI() {
   useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-chats', JSON.stringify(chats)) }, [chats, mounted])
   useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-active-chat', activeChatId || '') }, [activeChatId, mounted])
   useEffect(() => { if (mounted) localStorage.setItem('hydra-guest-msg-count', guestMessageCount.toString()) }, [guestMessageCount, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('hydra-ai-chat-mode', chatMode) }, [chatMode, mounted])
 
   // Auto-scroll
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent])
@@ -754,22 +775,68 @@ export default function HydraAI() {
       setActiveChatId(chatId)
     }
 
-    const userMessage: Message = { id: generateId(), role: 'user', content: input.trim(), timestamp: new Date() }
+    // Build the message content - store only original input in UI messages
+    const originalInput = input.trim()
+    let messageContent = originalInput
+    if (uploadedFileContent) {
+      messageContent = `[File: ${uploadedFileName}]\n${uploadedFileContent}\n\n[User]: ${messageContent}`
+    }
+
+    // Store the original input in the chat messages (clean UI display)
+    const userMessage: Message = { id: generateId(), role: 'user', content: originalInput, timestamp: new Date() }
     const updatedChats = chatsWithNew.map(c => c.id === chatId ? { ...c, messages: [...c.messages, userMessage] } : c)
     setChats(updatedChats)
     setInput('')
     setIsSending(true)
     setStreamingContent('')
 
+    // Agent mode: search first
+    let searchResults = null
+    if (chatMode === 'agent') {
+      setIsSearching(true)
+      try {
+        const searchRes = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: originalInput }),
+        })
+        if (searchRes.ok) {
+          const searchData = await searchRes.json()
+          searchResults = searchData.results
+        }
+      } catch (err) {
+        console.error('Search error:', err)
+      }
+      setIsSearching(false)
+    }
+
     // No guest limit tracking needed
 
-    const apiMessages = [
+    // Build API messages with the full content (including file prepend) for the last user message
+    const apiMessagesRaw = [
       ...(settings.systemPrompt ? [{ role: 'system' as const, content: settings.systemPrompt }] : []),
       ...(updatedChats.find(c => c.id === chatId)?.messages || []).map(m => ({ role: m.role, content: m.content })),
     ]
 
+    // Replace the last user message content with the full content (including file prepend)
+    const apiMessages = apiMessagesRaw.map((m, idx) => {
+      if (m.role === 'user' && idx === apiMessagesRaw.length - 1) {
+        return { role: m.role, content: messageContent }
+      }
+      return m
+    })
+
     const abortController = new AbortController()
     abortControllerRef.current = abortController
+
+    // Capture current upload states before clearing
+    const currentUploadedImage = uploadedImage
+
+    // Clear uploaded files/images after preparing the message
+    setUploadedFileContent(null)
+    setUploadedFileName(null)
+    setUploadedImage(null)
+    setUploadedImageName(null)
 
     try {
       const response = await fetch('/api/chat', {
@@ -781,6 +848,9 @@ export default function HydraAI() {
           model: settings.model,
           baseUrl: settings.baseUrl,
           useDefault: !settings.apiKey,
+          mode: chatMode,
+          imageUrl: currentUploadedImage,
+          searchResults: searchResults,
         }),
         signal: abortController.signal,
       })
@@ -864,7 +934,7 @@ export default function HydraAI() {
       setStreamingContent('')
       abortControllerRef.current = null
     }
-  }, [input, isSending, settings, activeChatId, chats, isAuthenticated, isGuest, guestMessageCount])
+  }, [input, isSending, settings, activeChatId, chats, isAuthenticated, isGuest, guestMessageCount, chatMode, uploadedFileContent, uploadedFileName, uploadedImage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -874,6 +944,42 @@ export default function HydraAI() {
     const provider = getProvider(value)
     const baseUrl = PROVIDER_BASE_URLS[provider] || 'https://api.openai.com/v1'
     setSettings(prev => ({ ...prev, model: value, baseUrl }))
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Check if image
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setUploadedImage(reader.result as string)
+        setUploadedImageName(file.name)
+      }
+      reader.readAsDataURL(file)
+      e.target.value = ''
+      return
+    }
+
+    // Upload document/PDF
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setUploadedFileContent(data.text)
+        setUploadedFileName(data.filename)
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+    } finally {
+      setIsUploading(false)
+    }
+    // Reset the input
+    e.target.value = ''
   }
 
   const handleCopy = (text: string) => { navigator.clipboard.writeText(text) }
@@ -1243,7 +1349,90 @@ export default function HydraAI() {
               <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4">
                 <div className="max-w-3xl mx-auto">
                   {/* No guest limit - free for all */}
+
+                  {/* Mode Selector */}
+                  <div className="flex items-center gap-1 mb-2">
+                    {[
+                      { id: 'chat', icon: MessageCircle, label: 'Chat' },
+                      { id: 'coding', icon: Code, label: 'Coding' },
+                      { id: 'analysis', icon: Brain, label: 'Analisis' },
+                      { id: 'agent', icon: Search, label: 'Agent' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setChatMode(mode.id as 'chat' | 'coding' | 'analysis' | 'agent')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                          chatMode === mode.id
+                            ? 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-sm'
+                            : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <mode.icon className="h-3 w-3" />
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Searching indicator */}
+                  {isSearching && (
+                    <div className="mb-2 flex items-center gap-2 text-xs text-cyan-500">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Mencari informasi...
+                    </div>
+                  )}
+
+                  {/* Uploading indicator */}
+                  {isUploading && (
+                    <div className="mb-2 flex items-center gap-2 text-xs text-cyan-500">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Mengunggah file...
+                    </div>
+                  )}
+
+                  {/* File/Image Preview */}
+                  {(uploadedFileName || uploadedImage) && (
+                    <div className="flex gap-2 mb-2">
+                      {uploadedFileName && !uploadedImage && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border text-xs">
+                          <FileText className="h-3.5 w-3.5 text-cyan-500" />
+                          <span className="max-w-[150px] truncate">{uploadedFileName}</span>
+                          <button onClick={() => { setUploadedFileContent(null); setUploadedFileName(null) }} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      {uploadedImage && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border text-xs">
+                          <ImageIcon className="h-3.5 w-3.5 text-cyan-500" />
+                          <span className="max-w-[150px] truncate">{uploadedImageName}</span>
+                          <button onClick={() => { setUploadedImage(null); setUploadedImageName(null) }} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-2 items-end">
+                    {/* File Upload Button */}
+                    <div className="flex items-end gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-11 w-11 p-0" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            <Paperclip className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Upload file</TooltipContent>
+                      </Tooltip>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.csv,.xml,.yaml,.yml,.png,.jpg,.jpeg,.gif,.webp"
+                        onChange={handleFileUpload}
+                      />
+                    </div>
+
                     <div className="flex-1 relative">
                       <Textarea
                         ref={textareaRef}
