@@ -148,7 +148,7 @@ const DEFAULT_SETTINGS: Settings = {
 }
 
 // ─── Guest limits ────────────────────────────────────────────────────
-const GUEST_MAX_MESSAGES = 10
+// Guest mode: unlimited (no message limit)
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function generateId() {
@@ -741,10 +741,7 @@ export default function HydraAI() {
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isSending) return
 
-    // Check guest limit
-    if (isGuest && !isAuthenticated && guestMessageCount >= GUEST_MAX_MESSAGES) {
-      return
-    }
+    // No guest limit - free for all users
 
     let chatId = activeChatId
     let chatsWithNew: Chat[] = chats
@@ -764,9 +761,7 @@ export default function HydraAI() {
     setIsSending(true)
     setStreamingContent('')
 
-    if (isGuest && !isAuthenticated) {
-      setGuestMessageCount(prev => prev + 1)
-    }
+    // No guest limit tracking needed
 
     const apiMessages = [
       ...(settings.systemPrompt ? [{ role: 'system' as const, content: settings.systemPrompt }] : []),
@@ -891,7 +886,7 @@ export default function HydraAI() {
   }
   const currentProvider = getProvider(settings.model)
 
-  const isGuestLimitReached = isGuest && !isAuthenticated && guestMessageCount >= GUEST_MAX_MESSAGES
+  const isGuestLimitReached = false // No guest limit - free for all
 
   // ─── Auth gate ──────────────────────────────────────────────
   if (!mounted) {
@@ -1094,22 +1089,14 @@ export default function HydraAI() {
 
               <div>
                 <h2 className="text-sm font-medium">{activeChat?.title || BRAND.name}</h2>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
-                    <Zap className="h-2.5 w-2.5" /> {MODELS.find(m => m.value === settings.model)?.label || settings.model}
-                  </Badge>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    {settings.apiKey ? currentProvider : 'Z.ai'}
-                  </Badge>
-                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               {/* Guest badge */}
               {isGuest && !isAuthenticated && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/30 text-amber-500">
-                  Tamu ({GUEST_MAX_MESSAGES - guestMessageCount} sisa)
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-cyan-500/30 text-cyan-500">
+                  Tamu (Gratis)
                 </Badge>
               )}
 
@@ -1255,13 +1242,7 @@ export default function HydraAI() {
               {/* Input Area */}
               <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4">
                 <div className="max-w-3xl mx-auto">
-                  {/* Guest limit warning */}
-                  {isGuestLimitReached && (
-                    <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm flex items-center gap-2">
-                      <Shield className="h-4 w-4 flex-shrink-0" />
-                      <span>Batas pesan tamu tercapai. <button onClick={logout} className="font-medium underline">Login</button> untuk akses tanpa batas.</span>
-                    </div>
-                  )}
+                  {/* No guest limit - free for all */}
                   <div className="flex gap-2 items-end">
                     <div className="flex-1 relative">
                       <Textarea
