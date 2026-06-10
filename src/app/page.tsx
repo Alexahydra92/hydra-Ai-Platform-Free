@@ -92,7 +92,10 @@ const BRAND = {
   tagline: 'Brew Your Ideas with AI',
 }
 
+const DEFAULT_AI = { value: 'glm-5', label: 'GLM-5', provider: 'Z.ai' }
+
 const MODELS = [
+  DEFAULT_AI,
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
   { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI' },
@@ -118,8 +121,8 @@ const PROVIDER_BASE_URLS: Record<string, string> = {
 
 const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
-  model: 'gpt-4o-mini',
-  baseUrl: 'https://api.openai.com/v1',
+  model: 'glm-5',
+  baseUrl: '',
   systemPrompt: 'You are a helpful AI assistant.',
   temperature: 0.7,
 }
@@ -502,7 +505,7 @@ export default function AIPlatform() {
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return
-    if (!settings.apiKey) { setSettingsOpen(true); return }
+    // No API key needed - default Z.ai GLM works out of the box
 
     let chatId = activeChatId
     if (!chatId) {
@@ -531,7 +534,13 @@ export default function AIPlatform() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages, apiKey: settings.apiKey, model: settings.model, baseUrl: settings.baseUrl }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          apiKey: settings.apiKey,
+          model: settings.model,
+          baseUrl: settings.baseUrl,
+          useDefault: !settings.apiKey,
+        }),
         signal: abortController.signal,
       })
 
@@ -602,14 +611,25 @@ export default function AIPlatform() {
   // ─── Settings Dialog Content ─────────────────────────────────
   const settingsContent = (
     <div className="space-y-6">
+      {/* Default AI Notice */}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-[#8B5E3C]/10 to-[#C4813D]/10 border border-[#C4813D]/20">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center flex-shrink-0">
+          <CoffeeLogo size={18} />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Z.ai GLM-5 - Siap Digunakan</p>
+          <p className="text-xs text-muted-foreground">Platform sudah include AI default. Tidak perlu API key!</p>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
-          <Key className="h-4 w-4" /> API Key
+          <Key className="h-4 w-4" /> API Key Custom (Opsional)
         </Label>
         <div className="relative">
           <Input
             type={apiKeyVisible ? 'text' : 'password'}
-            placeholder="Masukkan API key Anda..."
+            placeholder="Kosongkan untuk pakai Z.ai default..."
             value={settings.apiKey}
             onChange={(e) => setSettings(prev => ({ ...prev, apiKey: e.target.value }))}
             className="pr-20"
@@ -621,7 +641,7 @@ export default function AIPlatform() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          API key Anda disimpan secara lokal di browser dan tidak pernah dikirim ke server kami.
+          Opsional: Masukkan API key sendiri untuk menggunakan provider lain (OpenAI, DeepSeek, dll). API key disimpan lokal di browser.
         </p>
       </div>
 
@@ -666,9 +686,9 @@ export default function AIPlatform() {
       </div>
 
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-        <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-red-500'}`} />
+        <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-[#C4813D]'}`} />
         <span className="text-xs text-muted-foreground">
-          {settings.apiKey ? `Terhubung ke ${currentProvider} (${settings.model})` : 'Masukkan API key untuk memulai'}
+          {settings.apiKey ? `Custom: ${currentProvider} (${settings.model})` : `Z.ai GLM-5 (Default - Gratis)`}
         </span>
       </div>
     </div>
@@ -801,7 +821,9 @@ export default function AIPlatform() {
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
                     <Zap className="h-2.5 w-2.5" /> {MODELS.find(m => m.value === settings.model)?.label || settings.model}
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{currentProvider}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {settings.apiKey ? currentProvider : 'Z.ai'}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -831,22 +853,7 @@ export default function AIPlatform() {
                 </DialogContent>
               </Dialog>
 
-              {!settings.apiKey && (
-                <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5 h-8 text-xs bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white">
-                      <Key className="h-3.5 w-3.5" /> Set API Key
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Pengaturan</DialogTitle>
-                      <DialogDescription>Konfigurasi API dan preferensi Anda</DialogDescription>
-                    </DialogHeader>
-                    {settingsContent}
-                  </DialogContent>
-                </Dialog>
-              )}
+
 
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -872,35 +879,24 @@ export default function AIPlatform() {
                       Selamat Datang di <span className="bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] bg-clip-text text-transparent">Coffee AI</span>
                     </h2>
                     <p className="text-muted-foreground max-w-md mx-auto">
-                      Platform chat AI multi-provider. Masukkan API key Anda, pilih model, dan mulai berbicara dengan AI.
+                      Platform chat AI yang langsung bisa dipakai. Didukung Z.ai GLM-5 sebagai AI default. Masukkan API key custom untuk akses model lain.
                     </p>
                   </div>
 
-                  {!settings.apiKey && (
-                    <div className="bg-muted/50 border border-border rounded-xl p-4 max-w-sm mx-auto">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Key className="h-4 w-4 text-[#C4813D]" />
-                        <span className="text-sm font-medium">Mulai dengan API Key</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Masukkan API key dari OpenAI, Anthropic, DeepSeek, Google, Groq, atau OpenRouter.
-                      </p>
-                      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-                        <DialogTrigger asChild>
-                          <Button size="sm" className="w-full gap-2 bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white">
-                            <Key className="h-3.5 w-3.5" /> Atur API Key
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>Pengaturan</DialogTitle>
-                            <DialogDescription>Konfigurasi API dan preferensi Anda</DialogDescription>
-                          </DialogHeader>
-                          {settingsContent}
-                        </DialogContent>
-                      </Dialog>
+                  {/* Ready to use notice */}
+                  <div className="bg-gradient-to-r from-[#8B5E3C]/10 to-[#C4813D]/10 border border-[#C4813D]/20 rounded-xl p-4 max-w-md mx-auto">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-4 w-4 text-[#C4813D]" />
+                      <span className="text-sm font-medium">Siap Digunakan - Tanpa API Key!</span>
                     </div>
-                  )}
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Platform sudah include Z.ai GLM-5 sebagai AI default. Langsung chat, tanpa perlu setting apapun!
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-pulse" />
+                      <span className="text-xs text-[#C4813D] font-medium">Z.ai GLM-5 Active</span>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
                     {SUGGESTIONS.map((s, i) => (
@@ -965,7 +961,7 @@ export default function AIPlatform() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={!settings.apiKey ? 'Atur API key terlebih dahulu...' : 'Ketik pesan Anda...'}
+                    placeholder='Ketik pesan Anda... ☕'
                     disabled={isLoading}
                     className="resize-none min-h-[44px] max-h-[200px] pr-12 rounded-xl"
                     rows={1}
@@ -980,7 +976,7 @@ export default function AIPlatform() {
                     size="sm"
                     className="h-11 w-11 rounded-xl p-0 bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white"
                     onClick={sendMessage}
-                    disabled={!input.trim() || !settings.apiKey}
+                    disabled={!input.trim()}
                   >
                     <Send className="h-4 w-4" />
                   </Button>
