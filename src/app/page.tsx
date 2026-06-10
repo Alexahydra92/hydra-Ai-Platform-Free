@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -17,13 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Sheet,
   SheetContent,
@@ -57,18 +49,18 @@ import {
   Sun,
   Copy,
   Check,
-  RotateCcw,
   Square,
   Menu,
   Key,
   Zap,
   ChevronDown,
-  X,
+  Coffee,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useTheme } from 'next-themes'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Message {
@@ -95,6 +87,11 @@ interface Settings {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────
+const BRAND = {
+  name: 'Coffee AI',
+  tagline: 'Brew Your Ideas with AI',
+}
+
 const MODELS = [
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
@@ -128,7 +125,7 @@ const DEFAULT_SETTINGS: Settings = {
 }
 
 const SUGGESTIONS = [
-  { icon: '✍️', title: 'Tulis sebuah cerita pendek', desc: 'tentang petualangan di luar angkasa' },
+  { icon: '☕', title: 'Tulis sebuah cerita pendek', desc: 'tentang petualangan di luar angkasa' },
   { icon: '💻', title: 'Buatkan kode Python', desc: 'untuk web scraper sederhana' },
   { icon: '🧠', title: 'Jelaskan konsep', desc: 'machine learning dengan analogi sederhana' },
   { icon: '📊', title: 'Buat rencana bisnis', desc: 'untuk startup teknologi' },
@@ -141,6 +138,151 @@ function generateId() {
 
 function getProvider(model: string) {
   return MODELS.find(m => m.value === model)?.provider || 'OpenAI'
+}
+
+// ─── Coffee Logo Component ───────────────────────────────────────────
+function CoffeeLogo({ className = '', size = 24 }: { className?: string; size?: number }) {
+  return (
+    <svg viewBox="0 0 120 120" fill="none" className={className} width={size} height={size}>
+      <defs>
+        <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: '#8B5E3C' }} />
+          <stop offset="50%" style={{ stopColor: '#C4813D' }} />
+          <stop offset="100%" style={{ stopColor: '#D4A574' }} />
+        </linearGradient>
+        <linearGradient id="steamGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" style={{ stopColor: '#C4813D', stopOpacity: 0.8 }} />
+          <stop offset="100%" style={{ stopColor: '#E8C9A0', stopOpacity: 0.2 }} />
+        </linearGradient>
+      </defs>
+      <path d="M28 52 L32 90 Q33 98 42 98 L62 98 Q71 98 72 90 L76 52 Z" fill="url(#cupGrad)" />
+      <path d="M76 58 Q92 58 92 72 Q92 86 76 86" stroke="url(#cupGrad)" strokeWidth="5" fill="none" strokeLinecap="round" />
+      <rect x="26" y="48" width="52" height="6" rx="3" fill="#6B4226" />
+      <ellipse cx="52" cy="102" rx="38" ry="5" fill="#6B4226" opacity="0.3" />
+      <path d="M40 44 Q36 34 40 24 Q44 14 40 4" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M52 44 Q48 32 52 20 Q56 8 52 -2" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M64 44 Q60 34 64 24 Q68 14 64 4" stroke="url(#steamGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <circle cx="40" cy="24" r="3" fill="#D4A574" opacity="0.9" />
+      <circle cx="52" cy="20" r="4" fill="#C4813D" opacity="0.9" />
+      <circle cx="64" cy="24" r="3" fill="#D4A574" opacity="0.9" />
+      <circle cx="46" cy="10" r="2.5" fill="#D4A574" opacity="0.7" />
+      <circle cx="58" cy="10" r="2.5" fill="#D4A574" opacity="0.7" />
+      <circle cx="52" cy="2" r="3" fill="#C4813D" opacity="0.8" />
+      <line x1="40" y1="24" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
+      <line x1="52" y1="20" x2="64" y2="24" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
+      <line x1="46" y1="10" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
+      <line x1="58" y1="10" x2="52" y2="20" stroke="#D4A574" strokeWidth="1" opacity="0.5" />
+      <line x1="46" y1="10" x2="52" y2="2" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
+      <line x1="58" y1="10" x2="52" y2="2" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
+      <line x1="40" y1="24" x2="46" y2="10" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
+      <line x1="64" y1="24" x2="58" y2="10" stroke="#D4A574" strokeWidth="1" opacity="0.4" />
+    </svg>
+  )
+}
+
+// ─── Splash Screen Component ─────────────────────────────────────────
+function SplashScreen({ onFinish }: { onFinish: () => void }) {
+  const [phase, setPhase] = useState<'enter' | 'steady' | 'exit'>('enter')
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase('steady'), 400)
+    const t2 = setTimeout(() => setPhase('exit'), 2200)
+    const t3 = setTimeout(() => onFinish(), 2800)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [onFinish])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#1a0e08]"
+      initial={{ opacity: 1 }}
+      animate={phase === 'exit' ? { opacity: 0 } : { opacity: 1 }}
+      transition={{ duration: 0.6, ease: 'easeInOut' }}
+    >
+      {/* Background ambient glow */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#C4813D]/5 blur-[100px]" />
+      </div>
+
+      {/* Logo */}
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={phase === 'enter' ? { scale: 0.8, opacity: 0.5 } : { scale: 1, opacity: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="relative"
+      >
+        <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-2xl shadow-[#C4813D]/30">
+          <CoffeeLogo size={64} />
+        </div>
+
+        {/* Pulse ring */}
+        <motion.div
+          className="absolute inset-0 rounded-3xl border-2 border-[#C4813D]/40"
+          initial={{ scale: 1, opacity: 0.6 }}
+          animate={{ scale: 1.5, opacity: 0 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+        />
+      </motion.div>
+
+      {/* Brand name */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={phase !== 'enter' ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
+        className="mt-8 text-center"
+      >
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Coffee <span className="bg-gradient-to-r from-[#C4813D] to-[#E8C9A0] bg-clip-text text-transparent">AI</span>
+        </h1>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={phase === 'steady' ? { opacity: 1 } : {}}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="text-sm text-[#C4813D]/70 mt-2 tracking-wide"
+        >
+          Brew Your Ideas with AI
+        </motion.p>
+      </motion.div>
+
+      {/* Loading bar */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={phase !== 'enter' ? { opacity: 1 } : {}}
+        transition={{ duration: 0.4, delay: 0.4 }}
+        className="mt-10 w-48 h-1 bg-white/10 rounded-full overflow-hidden"
+      >
+        <motion.div
+          className="h-full bg-gradient-to-r from-[#8B5E3C] to-[#E8C9A0] rounded-full"
+          initial={{ width: '0%' }}
+          animate={{ width: '100%' }}
+          transition={{ duration: 1.8, delay: 0.3, ease: 'easeInOut' }}
+        />
+      </motion.div>
+
+      {/* Steam particles */}
+      {[...Array(6)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 rounded-full bg-[#C4813D]/30"
+          style={{
+            left: `${45 + Math.random() * 10}%`,
+            top: `${40 + Math.random() * 10}%`,
+          }}
+          initial={{ y: 0, opacity: 0 }}
+          animate={{
+            y: [0, -40 - Math.random() * 30],
+            opacity: [0, 0.6, 0],
+            x: [(Math.random() - 0.5) * 20],
+          }}
+          transition={{
+            duration: 2 + Math.random(),
+            delay: 0.5 + i * 0.3,
+            repeat: Infinity,
+            ease: 'easeOut',
+          }}
+        />
+      ))}
+    </motion.div>
+  )
 }
 
 // ─── Code Block Component ────────────────────────────────────────────
@@ -171,11 +313,7 @@ function CodeBlock({ children, className }: { children: string; className?: stri
       <SyntaxHighlighter
         language={language}
         style={oneDark}
-        customStyle={{
-          margin: 0,
-          borderRadius: 0,
-          fontSize: '0.85rem',
-        }}
+        customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem' }}
       >
         {children}
       </SyntaxHighlighter>
@@ -199,9 +337,9 @@ function MessageBubble({ message, onCopy }: { message: Message; onCopy: (text: s
       <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
         isUser
           ? 'bg-primary text-primary-foreground'
-          : 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'
+          : 'bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] text-white'
       }`}>
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        {isUser ? <User className="h-4 w-4" /> : <CoffeeLogo size={18} />}
       </div>
       <div className={`flex-1 max-w-[85%] ${isUser ? 'text-right' : ''}`}>
         <div className={`inline-block text-left rounded-2xl px-4 py-3 ${
@@ -227,30 +365,14 @@ function MessageBubble({ message, onCopy }: { message: Message; onCopy: (text: s
                     }
                     return <CodeBlock className={className}>{content}</CodeBlock>
                   },
-                  p({ children }) {
-                    return <p className="mb-2 last:mb-0">{children}</p>
-                  },
-                  ul({ children }) {
-                    return <ul className="mb-2 list-disc pl-4">{children}</ul>
-                  },
-                  ol({ children }) {
-                    return <ol className="mb-2 list-decimal pl-4">{children}</ol>
-                  },
-                  h1({ children }) {
-                    return <h1 className="text-lg font-bold mb-2 mt-3">{children}</h1>
-                  },
-                  h2({ children }) {
-                    return <h2 className="text-base font-bold mb-2 mt-3">{children}</h2>
-                  },
-                  h3({ children }) {
-                    return <h3 className="text-sm font-bold mb-1 mt-2">{children}</h3>
-                  },
-                  blockquote({ children }) {
-                    return <blockquote className="border-l-2 border-muted-foreground/30 pl-3 italic text-muted-foreground">{children}</blockquote>
-                  },
-                  a({ href, children }) {
-                    return <a href={href} className="text-violet-500 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
-                  },
+                  p({ children }) { return <p className="mb-2 last:mb-0">{children}</p> },
+                  ul({ children }) { return <ul className="mb-2 list-disc pl-4">{children}</ul> },
+                  ol({ children }) { return <ol className="mb-2 list-decimal pl-4">{children}</ol> },
+                  h1({ children }) { return <h1 className="text-lg font-bold mb-2 mt-3">{children}</h1> },
+                  h2({ children }) { return <h2 className="text-base font-bold mb-2 mt-3">{children}</h2> },
+                  h3({ children }) { return <h3 className="text-sm font-bold mb-1 mt-2">{children}</h3> },
+                  blockquote({ children }) { return <blockquote className="border-l-2 border-muted-foreground/30 pl-3 italic text-muted-foreground">{children}</blockquote> },
+                  a({ href, children }) { return <a href={href} className="text-[#C4813D] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a> },
                 }}
               >
                 {message.content}
@@ -290,6 +412,7 @@ export default function AIPlatform() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
 
@@ -303,14 +426,16 @@ export default function AIPlatform() {
   // Load from localStorage
   useEffect(() => {
     setMounted(true)
-    const savedSettings = localStorage.getItem('ai-platform-settings')
-    const savedChats = localStorage.getItem('ai-platform-chats')
-    const savedActiveChat = localStorage.getItem('ai-platform-active-chat')
+    const hasVisited = localStorage.getItem('coffee-ai-visited')
+    if (hasVisited) {
+      setShowSplash(false)
+    }
+    const savedSettings = localStorage.getItem('coffee-ai-settings')
+    const savedChats = localStorage.getItem('coffee-ai-chats')
+    const savedActiveChat = localStorage.getItem('coffee-ai-active-chat')
 
     if (savedSettings) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) })
-      } catch { /* ignore */ }
+      try { setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) }) } catch { /* ignore */ }
     }
     if (savedChats) {
       try {
@@ -318,41 +443,20 @@ export default function AIPlatform() {
         setChats(parsed.map((c: Chat) => ({
           ...c,
           createdAt: new Date(c.createdAt),
-          messages: c.messages.map((m: Message) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          })),
+          messages: c.messages.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) })),
         })))
       } catch { /* ignore */ }
     }
-    if (savedActiveChat) {
-      setActiveChatId(savedActiveChat)
-    }
+    if (savedActiveChat) { setActiveChatId(savedActiveChat) }
   }, [])
 
   // Save to localStorage
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('ai-platform-settings', JSON.stringify(settings))
-    }
-  }, [settings, mounted])
-
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('ai-platform-chats', JSON.stringify(chats))
-    }
-  }, [chats, mounted])
-
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('ai-platform-active-chat', activeChatId || '')
-    }
-  }, [activeChatId, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-settings', JSON.stringify(settings)) }, [settings, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-chats', JSON.stringify(chats)) }, [chats, mounted])
+  useEffect(() => { if (mounted) localStorage.setItem('coffee-ai-active-chat', activeChatId || '') }, [activeChatId, mounted])
 
   // Auto-scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamingContent])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -361,6 +465,11 @@ export default function AIPlatform() {
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px'
     }
   }, [input])
+
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false)
+    localStorage.setItem('coffee-ai-visited', 'true')
+  }, [])
 
   const createNewChat = useCallback(() => {
     const newChat: Chat = {
@@ -378,77 +487,41 @@ export default function AIPlatform() {
 
   const deleteChat = useCallback((chatId: string) => {
     setChats(prev => prev.filter(c => c.id !== chatId))
-    if (activeChatId === chatId) {
-      setActiveChatId(null)
-    }
+    if (activeChatId === chatId) setActiveChatId(null)
   }, [activeChatId])
 
   const stopGeneration = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
+    if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
     setIsLoading(false)
     if (streamingContent && activeChatId) {
-      const assistantMessage: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: streamingContent,
-        timestamp: new Date(),
-      }
-      setChats(prev => prev.map(c =>
-        c.id === activeChatId
-          ? { ...c, messages: [...c.messages, assistantMessage] }
-          : c
-      ))
+      const assistantMessage: Message = { id: generateId(), role: 'assistant', content: streamingContent, timestamp: new Date() }
+      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, assistantMessage] } : c))
       setStreamingContent('')
     }
   }, [streamingContent, activeChatId])
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return
-
-    if (!settings.apiKey) {
-      setSettingsOpen(true)
-      return
-    }
+    if (!settings.apiKey) { setSettingsOpen(true); return }
 
     let chatId = activeChatId
     if (!chatId) {
-      const newChat: Chat = {
-        id: generateId(),
-        title: 'Percakapan Baru',
-        messages: [],
-        createdAt: new Date(),
-        model: settings.model,
-      }
+      const newChat: Chat = { id: generateId(), title: 'Percakapan Baru', messages: [], createdAt: new Date(), model: settings.model }
       setChats(prev => [newChat, ...prev])
       chatId = newChat.id
       setActiveChatId(chatId)
     }
 
-    const userMessage: Message = {
-      id: generateId(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date(),
-    }
-
-    const updatedChats = chats.map(c =>
-      c.id === chatId ? { ...c, messages: [...c.messages, userMessage] } : c
-    )
+    const userMessage: Message = { id: generateId(), role: 'user', content: input.trim(), timestamp: new Date() }
+    const updatedChats = chats.map(c => c.id === chatId ? { ...c, messages: [...c.messages, userMessage] } : c)
     setChats(updatedChats)
     setInput('')
     setIsLoading(true)
     setStreamingContent('')
 
-    // Prepare messages for API
     const apiMessages = [
       ...(settings.systemPrompt ? [{ role: 'system' as const, content: settings.systemPrompt }] : []),
-      ...(updatedChats.find(c => c.id === chatId)?.messages || []).map(m => ({
-        role: m.role,
-        content: m.content,
-      })),
+      ...(updatedChats.find(c => c.id === chatId)?.messages || []).map(m => ({ role: m.role, content: m.content })),
     ]
 
     const abortController = new AbortController()
@@ -458,12 +531,7 @@ export default function AIPlatform() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: apiMessages,
-          apiKey: settings.apiKey,
-          model: settings.model,
-          baseUrl: settings.baseUrl,
-        }),
+        body: JSON.stringify({ messages: apiMessages, apiKey: settings.apiKey, model: settings.model, baseUrl: settings.baseUrl }),
         signal: abortController.signal,
       })
 
@@ -480,10 +548,8 @@ export default function AIPlatform() {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-
           const chunk = decoder.decode(value, { stream: true })
           const lines = chunk.split('\n')
-
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6).trim()
@@ -491,51 +557,27 @@ export default function AIPlatform() {
               try {
                 const parsed = JSON.parse(data)
                 const content = parsed.choices?.[0]?.delta?.content
-                if (content) {
-                  fullContent += content
-                  setStreamingContent(fullContent)
-                }
-              } catch {
-                // skip invalid JSON
-              }
+                if (content) { fullContent += content; setStreamingContent(fullContent) }
+              } catch { /* skip */ }
             }
           }
         }
       }
 
-      // Save assistant message
-      const assistantMessage: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: fullContent,
-        timestamp: new Date(),
-      }
-
-      setChats(prev => {
-        const updated = prev.map(c => {
-          if (c.id === chatId) {
-            const newMessages = [...c.messages, assistantMessage]
-            const title = c.messages.length === 0
-              ? userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '')
-              : c.title
-            return { ...c, messages: newMessages, title }
-          }
-          return c
-        })
-        return updated
-      })
+      const assistantMessage: Message = { id: generateId(), role: 'assistant', content: fullContent, timestamp: new Date() }
+      setChats(prev => prev.map(c => {
+        if (c.id === chatId) {
+          const newMessages = [...c.messages, assistantMessage]
+          const title = c.messages.length === 0 ? userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '') : c.title
+          return { ...c, messages: newMessages, title }
+        }
+        return c
+      }))
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') return
       const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
-      const errorMsg: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: `⚠️ Error: ${errorMessage}`,
-        timestamp: new Date(),
-      }
-      setChats(prev => prev.map(c =>
-        c.id === chatId ? { ...c, messages: [...c.messages, errorMsg] } : c
-      ))
+      const errorMsg: Message = { id: generateId(), role: 'assistant', content: `⚠️ Error: ${errorMessage}`, timestamp: new Date() }
+      setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: [...c.messages, errorMsg] } : c))
     } finally {
       setIsLoading(false)
       setStreamingContent('')
@@ -544,10 +586,7 @@ export default function AIPlatform() {
   }, [input, isLoading, settings, activeChatId, chats])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
 
   const handleModelChange = (value: string) => {
@@ -556,21 +595,13 @@ export default function AIPlatform() {
     setSettings(prev => ({ ...prev, model: value, baseUrl }))
   }
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
-
-  const clearAllChats = () => {
-    setChats([])
-    setActiveChatId(null)
-  }
-
+  const handleCopy = (text: string) => { navigator.clipboard.writeText(text) }
+  const clearAllChats = () => { setChats([]); setActiveChatId(null) }
   const currentProvider = getProvider(settings.model)
 
   // ─── Settings Dialog Content ─────────────────────────────────
   const settingsContent = (
     <div className="space-y-6">
-      {/* API Key */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <Key className="h-4 w-4" /> API Key
@@ -584,12 +615,7 @@ export default function AIPlatform() {
             className="pr-20"
           />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setApiKeyVisible(!apiKeyVisible)}
-            >
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setApiKeyVisible(!apiKeyVisible)}>
               {apiKeyVisible ? 'Sembunyikan' : 'Lihat'}
             </Button>
           </div>
@@ -599,100 +625,50 @@ export default function AIPlatform() {
         </p>
       </div>
 
-      {/* Model */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <Sparkles className="h-4 w-4" /> Model
         </Label>
-        <Input
-          placeholder="Cari model..."
-          value={modelSearch}
-          onChange={(e) => setModelSearch(e.target.value)}
-          className="mb-2"
-        />
+        <Input placeholder="Cari model..." value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} className="mb-2" />
         <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2">
-          {MODELS
-            .filter(m =>
-              m.label.toLowerCase().includes(modelSearch.toLowerCase()) ||
-              m.provider.toLowerCase().includes(modelSearch.toLowerCase())
-            )
-            .map((model) => (
-              <button
-                key={model.value}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
-                  settings.model === model.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                }`}
-                onClick={() => {
-                  handleModelChange(model.value)
-                  setModelSearch('')
-                }}
-              >
-                <span>{model.label}</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {model.provider}
-                </Badge>
-              </button>
-            ))}
+          {MODELS.filter(m => m.label.toLowerCase().includes(modelSearch.toLowerCase()) || m.provider.toLowerCase().includes(modelSearch.toLowerCase())).map((model) => (
+            <button
+              key={model.value}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${settings.model === model.value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+              onClick={() => { handleModelChange(model.value); setModelSearch('') }}
+            >
+              <span>{model.label}</span>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{model.provider}</Badge>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Base URL */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Base URL</Label>
-        <Input
-          placeholder="https://api.openai.com/v1"
-          value={settings.baseUrl}
-          onChange={(e) => setSettings(prev => ({ ...prev, baseUrl: e.target.value }))}
-        />
-        <p className="text-xs text-muted-foreground">
-          Otomatis disesuaikan berdasarkan provider. Anda juga bisa menggunakan URL custom untuk provider lain.
-        </p>
+        <Input placeholder="https://api.openai.com/v1" value={settings.baseUrl} onChange={(e) => setSettings(prev => ({ ...prev, baseUrl: e.target.value }))} />
+        <p className="text-xs text-muted-foreground">Otomatis disesuaikan berdasarkan provider. Anda juga bisa menggunakan URL custom.</p>
       </div>
 
-      {/* System Prompt */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">System Prompt</Label>
-        <Textarea
-          placeholder="Anda adalah asisten AI yang membantu..."
-          value={settings.systemPrompt}
-          onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))}
-          rows={3}
-        />
+        <Textarea placeholder="Anda adalah asisten AI yang membantu..." value={settings.systemPrompt} onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))} rows={3} />
       </div>
 
-      {/* Temperature */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">
-          Temperature: {settings.temperature.toFixed(1)}
-        </Label>
+        <Label className="text-sm font-medium">Temperature: {settings.temperature.toFixed(1)}</Label>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">0</span>
-          <input
-            type="range"
-            min="0"
-            max="2"
-            step="0.1"
-            value={settings.temperature}
-            onChange={(e) => setSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
-            className="flex-1"
-          />
+          <input type="range" min="0" max="2" step="0.1" value={settings.temperature} onChange={(e) => setSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))} className="flex-1" />
           <span className="text-xs text-muted-foreground">2</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Nilai rendah = lebih fokus, Nilai tinggi = lebih kreatif
-        </p>
+        <p className="text-xs text-muted-foreground">Nilai rendah = lebih fokus, Nilai tinggi = lebih kreatif</p>
       </div>
 
-      {/* Connection Status */}
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
         <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-red-500'}`} />
         <span className="text-xs text-muted-foreground">
-          {settings.apiKey
-            ? `Terhubung ke ${currentProvider} (${settings.model})`
-            : 'Masukkan API key untuk memulai'
-          }
+          {settings.apiKey ? `Terhubung ke ${currentProvider} (${settings.model})` : 'Masukkan API key untuk memulai'}
         </span>
       </div>
     </div>
@@ -702,14 +678,7 @@ export default function AIPlatform() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="p-3">
-        <Button
-          variant="outline"
-          className="w-full justify-start gap-2"
-          onClick={() => {
-            createNewChat()
-            setSidebarOpen(false)
-          }}
-        >
+        <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { createNewChat(); setSidebarOpen(false) }}>
           <Plus className="h-4 w-4" /> Percakapan Baru
         </Button>
       </div>
@@ -717,34 +686,17 @@ export default function AIPlatform() {
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
           {chats.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground text-sm">
-              Belum ada percakapan
-            </div>
+            <div className="p-4 text-center text-muted-foreground text-sm">Belum ada percakapan</div>
           ) : (
             chats.map((chat) => (
               <div
                 key={chat.id}
-                className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                  activeChatId === chat.id
-                    ? 'bg-primary/10 text-primary'
-                    : 'hover:bg-muted'
-                }`}
-                onClick={() => {
-                  setActiveChatId(chat.id)
-                  setSidebarOpen(false)
-                }}
+                className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${activeChatId === chat.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }}
               >
                 <MessageSquare className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm truncate flex-1">{chat.title}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteChat(chat.id)
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); deleteChat(chat.id) }}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
@@ -755,16 +707,10 @@ export default function AIPlatform() {
       <Separator />
       <div className="p-3 space-y-2">
         {chats.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-            onClick={clearAllChats}
-          >
+          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={clearAllChats}>
             <Trash2 className="h-4 w-4" /> Hapus Semua
           </Button>
         )}
-        {/* Mobile settings */}
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="w-full justify-start gap-2 lg:hidden">
@@ -783,12 +729,15 @@ export default function AIPlatform() {
     </div>
   )
 
+  // ─── Loading state before mount ──────────────────────────────
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted-foreground">Memuat...</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#1a0e08]">
+        <div className="flex flex-col items-center gap-4">
+          <CoffeeLogo size={48} />
+          <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-[#8B5E3C] to-[#E8C9A0] rounded-full animate-pulse" style={{ width: '60%' }} />
+          </div>
         </div>
       </div>
     )
@@ -796,16 +745,27 @@ export default function AIPlatform() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen flex bg-background">
+      {/* Splash Screen */}
+      <AnimatePresence>
+        {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
+      </AnimatePresence>
+
+      {/* Main App */}
+      <motion.div
+        className="min-h-screen flex bg-background"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: showSplash ? 0 : 1 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-72 border-r border-border flex-col bg-muted/30">
-          <div className="p-4 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-              <Bot className="h-5 w-5 text-white" />
+          <div className="p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-md shadow-[#C4813D]/20">
+              <CoffeeLogo size={22} />
             </div>
             <div>
-              <h1 className="text-sm font-bold">AI Platform</h1>
-              <p className="text-[10px] text-muted-foreground">Multi-Provider AI Chat</p>
+              <h1 className="text-sm font-bold">{BRAND.name}</h1>
+              <p className="text-[10px] text-muted-foreground">{BRAND.tagline}</p>
             </div>
           </div>
           {sidebarContent}
@@ -816,7 +776,6 @@ export default function AIPlatform() {
           {/* Header */}
           <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              {/* Mobile sidebar toggle */}
               <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="sm" className="lg:hidden">
@@ -826,10 +785,10 @@ export default function AIPlatform() {
                 <SheetContent side="left" className="w-72 p-0">
                   <SheetHeader className="p-4 pb-0">
                     <SheetTitle className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                        <Bot className="h-4 w-4 text-white" />
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center">
+                        <CoffeeLogo size={16} />
                       </div>
-                      AI Platform
+                      {BRAND.name}
                     </SheetTitle>
                   </SheetHeader>
                   {sidebarContent}
@@ -837,37 +796,26 @@ export default function AIPlatform() {
               </Sheet>
 
               <div>
-                <h2 className="text-sm font-medium">
-                  {activeChat?.title || 'AI Platform'}
-                </h2>
+                <h2 className="text-sm font-medium">{activeChat?.title || BRAND.name}</h2>
                 <div className="flex items-center gap-1.5">
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
                     <Zap className="h-2.5 w-2.5" /> {MODELS.find(m => m.value === settings.model)?.label || settings.model}
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    {currentProvider}
-                  </Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{currentProvider}</Badge>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Theme Toggle */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  >
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
                     {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Ganti tema</TooltipContent>
               </Tooltip>
 
-              {/* Settings - Desktop */}
               <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hidden lg:flex">
@@ -883,11 +831,10 @@ export default function AIPlatform() {
                 </DialogContent>
               </Dialog>
 
-              {/* Quick API Key */}
               {!settings.apiKey && (
                 <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5 h-8 text-xs">
+                    <Button size="sm" className="gap-1.5 h-8 text-xs bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white">
                       <Key className="h-3.5 w-3.5" /> Set API Key
                     </Button>
                   </DialogTrigger>
@@ -901,15 +848,9 @@ export default function AIPlatform() {
                 </Dialog>
               )}
 
-              {/* New Chat */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={createNewChat}
-                  >
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={createNewChat}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -923,24 +864,22 @@ export default function AIPlatform() {
             {messages.length === 0 && !streamingContent ? (
               <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] px-4">
                 <div className="max-w-2xl w-full text-center space-y-8">
-                  {/* Hero */}
                   <div className="space-y-4">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
-                      <Sparkles className="h-8 w-8 text-white" />
+                    <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] flex items-center justify-center shadow-xl shadow-[#C4813D]/25">
+                      <CoffeeLogo size={48} />
                     </div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                      Selamat Datang di AI Platform
+                      Selamat Datang di <span className="bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] bg-clip-text text-transparent">Coffee AI</span>
                     </h2>
                     <p className="text-muted-foreground max-w-md mx-auto">
                       Platform chat AI multi-provider. Masukkan API key Anda, pilih model, dan mulai berbicara dengan AI.
                     </p>
                   </div>
 
-                  {/* Quick Setup */}
                   {!settings.apiKey && (
                     <div className="bg-muted/50 border border-border rounded-xl p-4 max-w-sm mx-auto">
                       <div className="flex items-center gap-2 mb-2">
-                        <Key className="h-4 w-4 text-violet-500" />
+                        <Key className="h-4 w-4 text-[#C4813D]" />
                         <span className="text-sm font-medium">Mulai dengan API Key</span>
                       </div>
                       <p className="text-xs text-muted-foreground mb-3">
@@ -948,7 +887,7 @@ export default function AIPlatform() {
                       </p>
                       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" className="w-full gap-2">
+                          <Button size="sm" className="w-full gap-2 bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white">
                             <Key className="h-3.5 w-3.5" /> Atur API Key
                           </Button>
                         </DialogTrigger>
@@ -963,16 +902,12 @@ export default function AIPlatform() {
                     </div>
                   )}
 
-                  {/* Suggestions */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
                     {SUGGESTIONS.map((s, i) => (
                       <button
                         key={i}
-                        className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 transition-colors text-left"
-                        onClick={() => {
-                          setInput(`${s.title} ${s.desc}`)
-                          textareaRef.current?.focus()
-                        }}
+                        className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 hover:border-[#C4813D]/30 transition-colors text-left"
+                        onClick={() => { setInput(`${s.title} ${s.desc}`); textareaRef.current?.focus() }}
                       >
                         <span className="text-lg">{s.icon}</span>
                         <div>
@@ -983,7 +918,6 @@ export default function AIPlatform() {
                     ))}
                   </div>
 
-                  {/* Supported Providers */}
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground font-medium">Provider Didukung</p>
                     <div className="flex flex-wrap justify-center gap-2">
@@ -1000,26 +934,18 @@ export default function AIPlatform() {
                   <MessageBubble key={msg.id} message={msg} onCopy={handleCopy} />
                 ))}
                 {streamingContent && (
-                  <MessageBubble
-                    message={{
-                      id: 'streaming',
-                      role: 'assistant',
-                      content: streamingContent,
-                      timestamp: new Date(),
-                    }}
-                    onCopy={handleCopy}
-                  />
+                  <MessageBubble message={{ id: 'streaming', role: 'assistant', content: streamingContent, timestamp: new Date() }} onCopy={handleCopy} />
                 )}
                 {isLoading && !streamingContent && (
                   <div className="flex gap-3 py-4">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center">
-                      <Bot className="h-4 w-4" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5E3C] to-[#C4813D] text-white flex items-center justify-center">
+                      <CoffeeLogo size={18} />
                     </div>
                     <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.3s]" />
-                        <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.15s]" />
-                        <div className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" />
+                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce [animation-delay:-0.3s]" />
+                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce [animation-delay:-0.15s]" />
+                        <div className="w-2 h-2 rounded-full bg-[#C4813D] animate-bounce" />
                       </div>
                     </div>
                   </div>
@@ -1039,29 +965,20 @@ export default function AIPlatform() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={
-                      !settings.apiKey
-                        ? 'Atur API key terlebih dahulu...'
-                        : 'Ketik pesan Anda...'
-                    }
+                    placeholder={!settings.apiKey ? 'Atur API key terlebih dahulu...' : 'Ketik pesan Anda...'}
                     disabled={isLoading}
                     className="resize-none min-h-[44px] max-h-[200px] pr-12 rounded-xl"
                     rows={1}
                   />
                 </div>
                 {isLoading ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-11 w-11 rounded-xl p-0"
-                    onClick={stopGeneration}
-                  >
+                  <Button variant="destructive" size="sm" className="h-11 w-11 rounded-xl p-0" onClick={stopGeneration}>
                     <Square className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button
                     size="sm"
-                    className="h-11 w-11 rounded-xl p-0"
+                    className="h-11 w-11 rounded-xl p-0 bg-gradient-to-r from-[#8B5E3C] to-[#C4813D] hover:from-[#7A5232] hover:to-[#B37435] text-white"
                     onClick={sendMessage}
                     disabled={!input.trim() || !settings.apiKey}
                   >
@@ -1081,21 +998,13 @@ export default function AIPlatform() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto">
                       {Object.entries(
-                        MODELS.reduce((acc, m) => {
-                          if (!acc[m.provider]) acc[m.provider] = []
-                          acc[m.provider].push(m)
-                          return acc
-                        }, {} as Record<string, typeof MODELS>)
+                        MODELS.reduce((acc, m) => { if (!acc[m.provider]) acc[m.provider] = []; acc[m.provider].push(m); return acc }, {} as Record<string, typeof MODELS>)
                       ).map(([provider, models]) => (
                         <div key={provider}>
                           <DropdownMenuSeparator />
                           <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{provider}</p>
                           {models.map((model) => (
-                            <DropdownMenuItem
-                              key={model.value}
-                              onClick={() => handleModelChange(model.value)}
-                              className={settings.model === model.value ? 'bg-primary/10' : ''}
-                            >
+                            <DropdownMenuItem key={model.value} onClick={() => handleModelChange(model.value)} className={settings.model === model.value ? 'bg-primary/10' : ''}>
                               {model.label}
                             </DropdownMenuItem>
                           ))}
@@ -1104,14 +1013,12 @@ export default function AIPlatform() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Shift + Enter untuk baris baru
-                </p>
+                <p className="text-[10px] text-muted-foreground">Shift + Enter untuk baris baru</p>
               </div>
             </div>
           </div>
         </main>
-      </div>
+      </motion.div>
     </TooltipProvider>
   )
 }

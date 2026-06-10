@@ -1,29 +1,47 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
-
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
-
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
-
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
-  </g>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5E3C"/>
+      <stop offset="50%" style="stop-color:#C4813D"/>
+      <stop offset="100%" style="stop-color:#D4A574"/>
+    </linearGradient>
+    <linearGradient id="steamGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#C4813D;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#E8C9A0;stop-opacity:0.2"/>
+    </linearGradient>
+    <linearGradient id="neuralGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8B5E3C"/>
+      <stop offset="100%" style="stop-color:#D4A574"/>
+    </linearGradient>
+  </defs>
+  <!-- Cup body -->
+  <path d="M28 52 L32 90 Q33 98 42 98 L62 98 Q71 98 72 90 L76 52 Z" fill="url(#cupGrad)" rx="4"/>
+  <!-- Cup handle -->
+  <path d="M76 58 Q92 58 92 72 Q92 86 76 86" stroke="url(#cupGrad)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Cup rim -->
+  <rect x="26" y="48" width="52" height="6" rx="3" fill="#6B4226"/>
+  <!-- Saucer -->
+  <ellipse cx="52" cy="102" rx="38" ry="5" fill="#6B4226" opacity="0.3"/>
+  <!-- Steam line 1 (left) -->
+  <path d="M40 44 Q36 34 40 24 Q44 14 40 4" stroke="url(#steamGrad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Steam line 2 (center - becomes neural) -->
+  <path d="M52 44 Q48 32 52 20 Q56 8 52 -2" stroke="url(#steamGrad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Steam line 3 (right) -->
+  <path d="M64 44 Q60 34 64 24 Q68 14 64 4" stroke="url(#steamGrad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Neural network nodes on steam -->
+  <circle cx="40" cy="24" r="3" fill="#D4A574" opacity="0.9"/>
+  <circle cx="52" cy="20" r="4" fill="#C4813D" opacity="0.9"/>
+  <circle cx="64" cy="24" r="3" fill="#D4A574" opacity="0.9"/>
+  <circle cx="46" cy="10" r="2.5" fill="#D4A574" opacity="0.7"/>
+  <circle cx="58" cy="10" r="2.5" fill="#D4A574" opacity="0.7"/>
+  <circle cx="52" cy="2" r="3" fill="#C4813D" opacity="0.8"/>
+  <!-- Neural connections -->
+  <line x1="40" y1="24" x2="52" y2="20" stroke="#D4A574" stroke-width="1" opacity="0.5"/>
+  <line x1="52" y1="20" x2="64" y2="24" stroke="#D4A574" stroke-width="1" opacity="0.5"/>
+  <line x1="46" y1="10" x2="52" y2="20" stroke="#D4A574" stroke-width="1" opacity="0.5"/>
+  <line x1="58" y1="10" x2="52" y2="20" stroke="#D4A574" stroke-width="1" opacity="0.5"/>
+  <line x1="46" y1="10" x2="52" y2="2" stroke="#D4A574" stroke-width="1" opacity="0.4"/>
+  <line x1="58" y1="10" x2="52" y2="2" stroke="#D4A574" stroke-width="1" opacity="0.4"/>
+  <line x1="40" y1="24" x2="46" y2="10" stroke="#D4A574" stroke-width="1" opacity="0.4"/>
+  <line x1="64" y1="24" x2="58" y2="10" stroke="#D4A574" stroke-width="1" opacity="0.4"/>
 </svg>

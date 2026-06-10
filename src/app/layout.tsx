@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Platform - Multi-Provider AI Chat",
+  title: "Coffee AI - Brew Your Ideas with AI",
   description: "Platform chat AI modern dengan dukungan multi-provider. Gunakan API key sendiri dari OpenAI, Anthropic, DeepSeek, Google, Groq, atau OpenRouter.",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
 };
 
