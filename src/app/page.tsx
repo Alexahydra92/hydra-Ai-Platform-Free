@@ -120,36 +120,57 @@ const BRAND = {
   tagline: 'Multi-Model Intelligence',
 }
 
-const DEFAULT_AI = { value: 'glm-5', label: 'GLM-5', provider: 'Z.ai' }
+const DEFAULT_AI = { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'Default' }
 
 const MODELS = [
   DEFAULT_AI,
+  // ─── OpenAI ────────────────────
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
   { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI' },
   { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', provider: 'OpenAI' },
+  // ─── Anthropic ─────────────────
+  { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'Anthropic' },
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', provider: 'Anthropic' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', provider: 'Anthropic' },
+  // ─── Google ────────────────────
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google' },
+  { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro', provider: 'Google' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'Google' },
+  // ─── DeepSeek ──────────────────
   { value: 'deepseek-chat', label: 'DeepSeek Chat', provider: 'DeepSeek' },
   { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner', provider: 'DeepSeek' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'Google' },
-  { value: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro', provider: 'Google' },
-  { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B', provider: 'Groq' },
+  // ─── Groq ──────────────────────
+  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Groq' },
+  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', provider: 'Groq' },
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', provider: 'Groq' },
+  // ─── OpenRouter ────────────────
   { value: 'qwen/qwen3-235b-a22b', label: 'Qwen3 235B', provider: 'OpenRouter' },
+  { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B', provider: 'OpenRouter' },
+  { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash', provider: 'OpenRouter' },
+  // ─── Mistral ───────────────────
+  { value: 'mistral-large-latest', label: 'Mistral Large', provider: 'Mistral' },
+  { value: 'mistral-small-latest', label: 'Mistral Small', provider: 'Mistral' },
+  // ─── Together AI ───────────────
+  { value: 'meta-llama/Llama-3-70b-chat-hf', label: 'Llama 3 70B', provider: 'Together' },
+  { value: 'Qwen/Qwen2.5-72B-Instruct', label: 'Qwen 2.5 72B', provider: 'Together' },
 ]
 
 const PROVIDER_BASE_URLS: Record<string, string> = {
+  Default: 'https://api.openai.com/v1',
   OpenAI: 'https://api.openai.com/v1',
   Anthropic: 'https://api.anthropic.com/v1',
   DeepSeek: 'https://api.deepseek.com/v1',
   Google: 'https://generativelanguage.googleapis.com/v1beta/openai',
   Groq: 'https://api.groq.com/openai/v1',
   OpenRouter: 'https://openrouter.ai/api/v1',
+  Mistral: 'https://api.mistral.ai/v1',
+  Together: 'https://api.together.xyz/v1',
 }
 
 const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
-  model: 'glm-5',
+  model: 'gpt-4o-mini',
   baseUrl: '',
   systemPrompt: 'You are a helpful AI assistant.',
   temperature: 0.7,
@@ -1032,7 +1053,7 @@ export default function HydraAI() {
           <HydraLogo size={18} />
         </div>
         <div>
-          <p className="text-sm font-medium">GLM-5 - Siap Digunakan</p>
+          <p className="text-sm font-medium">AI Default - Siap Digunakan</p>
           <p className="text-xs text-muted-foreground">Powered By @Alexa Hydra</p>
         </div>
       </div>
@@ -1044,7 +1065,7 @@ export default function HydraAI() {
         <div className="relative">
           <Input
             type={apiKeyVisible ? 'text' : 'password'}
-            placeholder="Kosongkan untuk pakai GLM-5 default..."
+            placeholder="Kosongkan untuk pakai AI default gratis..."
             value={settings.apiKey}
             onChange={(e) => setSettings(prev => ({ ...prev, apiKey: e.target.value }))}
             className="pr-20"
@@ -1056,7 +1077,7 @@ export default function HydraAI() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Opsional: Masukkan API key sendiri untuk menggunakan provider lain (OpenAI, DeepSeek, dll).
+          Opsional: Masukkan API key sendiri untuk menggunakan provider lain (OpenAI, DeepSeek, Groq, Google, dll).
         </p>
       </div>
 
@@ -1102,7 +1123,7 @@ export default function HydraAI() {
       <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
         <div className={`w-2 h-2 rounded-full ${settings.apiKey ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
         <span className="text-xs text-muted-foreground">
-          {settings.apiKey ? `Custom: ${currentProvider} (${settings.model})` : `GLM-5 (Default - Gratis)`}
+          {settings.apiKey ? `Custom: ${currentProvider} (${settings.model})` : `AI Default (Gratis - Multi-Provider)`}
         </span>
       </div>
     </div>

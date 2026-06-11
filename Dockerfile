@@ -57,4 +57,8 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/app/data/hydra.db"
 
+# Default AI provider config (override at runtime with env vars)
+ENV DEFAULT_BASE_URL="https://api.openai.com/v1"
+ENV DEFAULT_MODEL="gpt-4o-mini"
+
 CMD ["/app/docker-entrypoint.sh"]
