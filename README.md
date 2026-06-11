@@ -1,3 +1,9 @@
+<div align="center">
+  <img src="public/cover.png" alt="Hydra AI Platform" width="100%" />
+</div>
+
+<br/>
+
 # 🐉 Hydra AI Platform
 
 Multi-model AI chat platform with coding assistant, file analysis, image understanding, and web search agent — all in one place.
