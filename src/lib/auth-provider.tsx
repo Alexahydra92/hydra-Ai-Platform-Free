@@ -67,7 +67,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       })
-      const data = await res.json()
+      let data: { error?: string } = {}
+      try {
+        const text = await res.text()
+        if (text && !text.trim().startsWith('<')) data = JSON.parse(text)
+      } catch { /* ignore */ }
       if (!res.ok) {
         return { success: false, error: data.error || 'Gagal mendaftar' }
       }

@@ -158,6 +158,17 @@ const DEFAULT_SETTINGS: Settings = {
 // ─── Guest limits ────────────────────────────────────────────────────
 // Guest mode: unlimited (no message limit)
 
+// ─── Safe JSON parser ──────────────────────────────────────────────
+async function safeJsonParse<T = unknown>(response: Response): Promise<T | null> {
+  try {
+    const text = await response.text()
+    if (!text || text.trim().startsWith('<')) return null
+    return JSON.parse(text) as T
+  } catch {
+    return null
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 function generateId() {
   return Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
@@ -434,9 +445,11 @@ function DashboardView() {
       try {
         const res = await fetch('/api/user')
         if (res.ok) {
-          const data = await res.json()
-          setStats(data.stats)
-          setChats(data.chats || [])
+          const data = await safeJsonParse<{ stats: DashboardStats; chats: Array<{ id: string; title: string; model: string; createdAt: string; _count: { messages: number } }> }>(res)
+          if (data) {
+            setStats(data.stats)
+            setChats(data.chats || [])
+          }
         }
       } catch (err) {
         console.error('Fetch stats error:', err)
@@ -668,7 +681,7 @@ export default function HydraAI() {
   useEffect(() => {
     if (isAuthenticated) {
       fetch('/api/chats')
-        .then(res => res.ok ? res.json() : [])
+        .then(async res => res.ok ? (await safeJsonParse(res)) || [] : [])
         .then(dbChats => {
           if (Array.isArray(dbChats) && dbChats.length > 0) {
             const mapped: Chat[] = dbChats.map((c: { id: string; title: string; model: string; createdAt: string; messages: Array<{ id: string; role: string; content: string; createdAt: string }> }) => ({
@@ -801,8 +814,8 @@ export default function HydraAI() {
           body: JSON.stringify({ query: originalInput }),
         })
         if (searchRes.ok) {
-          const searchData = await searchRes.json()
-          searchResults = searchData.results
+          const searchData = await safeJsonParse<{ results: Array<Record<string, unknown>> }>(searchRes)
+          if (searchData) searchResults = searchData.results
         }
       } catch (err) {
         console.error('Search error:', err)
@@ -856,8 +869,8 @@ export default function HydraAI() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Gagal mendapatkan respons')
+        const errorData = await safeJsonParse<{ error: string }>(response)
+        throw new Error(errorData?.error || 'Gagal mendapatkan respons')
       }
 
       const reader = response.body?.getReader()
@@ -969,9 +982,11 @@ export default function HydraAI() {
       formData.append('file', file)
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       if (res.ok) {
-        const data = await res.json()
-        setUploadedFileContent(data.text)
-        setUploadedFileName(data.filename)
+        const data = await safeJsonParse<{ text: string; filename: string }>(res)
+        if (data) {
+          setUploadedFileContent(data.text)
+          setUploadedFileName(data.filename)
+        }
       }
     } catch (err) {
       console.error('Upload error:', err)
