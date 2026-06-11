@@ -137,8 +137,7 @@ docker run -p 3000:3000 \
 | `NEXTAUTH_URL` | ✅ | Your app URL (e.g. `https://your-app.railway.app`) |
 | `DATABASE_URL` | ✅ | SQLite database path (default: `file:/app/data/hydra.db`) |
 | `GITHUB_ID` | ❌ | GitHub OAuth App ID for GitHub login |
-| `GITHUB_SECRET` | ❌ | GitHub OAuth App Secret for GitHub login |
-| `ZAI_API_KEY` | ❌ | Legacy Z.ai API key (fallback for DEFAULT_API_KEY) |
+
 
 ## 🏗️ Tech Stack
 
